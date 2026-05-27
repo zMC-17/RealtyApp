@@ -1,12 +1,10 @@
 """Модель пользователя (арендодатель/арендатор)"""
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String
-from app.models import BaseModel
+from app.models.base import BaseModel, Mapped, String, mapped_column, relationship
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models.property import Properties
     from app.models.contract import Contract
+    from app.models.property import Property
 
 
 class User(BaseModel):
@@ -18,5 +16,5 @@ class User(BaseModel):
     email: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(nullable=False)
 
-    properties: Mapped[list['Properties']] = relationship('Properties', back_populates='owner')
+    properties: Mapped[list['Property']] = relationship('Property', back_populates='owner')
     contracts: Mapped[list['Contract']] = relationship('Contract', back_populates='tenant')

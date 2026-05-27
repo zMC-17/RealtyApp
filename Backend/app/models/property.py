@@ -1,15 +1,13 @@
 """Модель объекта недвижимости"""
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Text, ForeignKey
-from app.models import BaseModel
-from typing import Optional, TYPE_CHECKING
+from app.models.base import BaseModel, ForeignKey, Mapped, Optional, String, Text, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.contract import Contract
+    from app.models.user import User
 
 
-class Properties(BaseModel):
+class Property(BaseModel):
     """Объект недвижимости - квартира, дом и т.д."""
     __tablename__ = 'properties'
 

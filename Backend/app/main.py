@@ -4,7 +4,7 @@ from app.core.config import settings
 
 # Импорт моделей для регистрации в Base (нужно для миграций Alembic)
 from app.models.user import User
-from app.models.property import Properties
+from app.models.property import Property
 from app.models.contract import Contract
 from app.models.request import Request
 from app.models.payment import Payment
