@@ -1,12 +1,10 @@
 """Роутер для управления объектами недвижимости."""
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
-from app.models.property import Property
 from app.models.user import User
 from app.schemas.property import PropertyCreate, PropertyResponse, PropertyUpdate
 from app.services.property_service import PropertyService
@@ -33,8 +31,6 @@ async def create_property(
 ) -> PropertyResponse:
 	"""Создать объект недвижимости для текущего пользователя."""
 	property_obj = await PropertyService.create(current_user.id, payload, db)
-	await db.commit()
-	await db.refresh(property_obj)
 	return PropertyResponse.model_validate(property_obj)
 
 
@@ -58,8 +54,6 @@ async def update_property(
 ) -> PropertyResponse:
 	"""Обновить объект недвижимости."""
 	property_obj = await PropertyService.update(property_id, current_user.id, payload, db)
-	await db.commit()
-	await db.refresh(property_obj)
 	return PropertyResponse.model_validate(property_obj)
 
 
@@ -71,5 +65,4 @@ async def delete_property(
 ) -> Response:
 	"""Удалить объект недвижимости."""
 	await PropertyService.delete(property_id, current_user.id, db)
-	await db.commit()
 	return Response(status_code=status.HTTP_204_NO_CONTENT)

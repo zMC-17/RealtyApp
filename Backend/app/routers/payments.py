@@ -1,14 +1,10 @@
 """Роутер для платежей."""
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
-from app.models.contract import Contract
-from app.models.payment import Payment
-from app.models.property import Property
 from app.models.user import User
 from app.schemas.payment import PaymentCreate, PaymentResponse, PaymentUpdate
 from app.services.payment_service import PaymentService
@@ -17,34 +13,13 @@ from app.services.payment_service import PaymentService
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
-async def _list_payments_for_contracts(
-	contract_ids: list[int],
-	db: AsyncSession,
-	status_filter: str | None = None,
-) -> list[Payment]:
-	"""Получить платежи по списку договоров."""
-	if not contract_ids:
-		return []
-
-	stmt = select(Payment).where(Payment.contract_id.in_(contract_ids)).order_by(Payment.due_date.desc())
-	if status_filter:
-		stmt = stmt.where(Payment.status == status_filter)
-
-	result = await db.execute(stmt)
-	return [payment for payment in result.scalars().all()]
-
-
 @router.get("/me", response_model=list[PaymentResponse])
 async def list_my_payments(
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PaymentResponse]:
 	"""Все платежи, связанные с текущим пользователем."""
-	contract_ids_result = await db.execute(
-		select(Contract.id).join(Property).where((Contract.tenant_id == current_user.id) | (Property.owner_id == current_user.id))
-	)
-	contract_ids = list(contract_ids_result.scalars().all())
-	payments = await _list_payments_for_contracts(contract_ids, db)
+	payments = await PaymentService.list_related_payments(current_user.id, db)
 	return [PaymentResponse.model_validate(item) for item in payments]
 
 
@@ -54,11 +29,7 @@ async def list_my_owner_payments(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PaymentResponse]:
 	"""Платежи по объектам текущего владельца."""
-	contract_ids_result = await db.execute(
-		select(Contract.id).join(Property).where(Property.owner_id == current_user.id)
-	)
-	contract_ids = list(contract_ids_result.scalars().all())
-	payments = await _list_payments_for_contracts(contract_ids, db)
+	payments = await PaymentService.list_owner_payments(current_user.id, db)
 	return [PaymentResponse.model_validate(item) for item in payments]
 
 
@@ -68,11 +39,7 @@ async def list_my_tenant_payments(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PaymentResponse]:
 	"""Платежи текущего арендатора."""
-	contract_ids_result = await db.execute(
-		select(Contract.id).where(Contract.tenant_id == current_user.id)
-	)
-	contract_ids = list(contract_ids_result.scalars().all())
-	payments = await _list_payments_for_contracts(contract_ids, db)
+	payments = await PaymentService.list_tenant_payments(current_user.id, db)
 	return [PaymentResponse.model_validate(item) for item in payments]
 
 
@@ -83,13 +50,7 @@ async def list_contract_payments(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PaymentResponse]:
 	"""Платежи по одному договору."""
-	from app.services.contract_service import ContractService
-	_, _ = await ContractService.get_with_access(contract_id, current_user.id, db)
-
-	result = await db.execute(
-		select(Payment).where(Payment.contract_id == contract_id).order_by(Payment.due_date.desc())
-	)
-	payments = list(result.scalars().all())
+	payments = await PaymentService.list_contract_payments(contract_id, current_user.id, db)
 	return [PaymentResponse.model_validate(item) for item in payments]
 
 
@@ -100,19 +61,7 @@ async def create_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PaymentResponse:
 	"""Создать платеж для договора. Доступно владельцу объекта."""
-	from app.services.contract_service import ContractService
-	contract_obj, _ = await ContractService.get_with_access(payload.contract_id, current_user.id, db)
-	payment_obj = await PaymentService.create_payment_for_owner(
-		contract=contract_obj,
-		owner_id=current_user.id,
-		amount=payload.amount,
-		due_date=payload.due_date,
-		status=payload.status,
-		comment=payload.comment,
-		db=db,
-	)
-	await db.commit()
-	await db.refresh(payment_obj)
+	payment_obj = await PaymentService.create_payment_for_owner(payload, current_user.id, db)
 	return PaymentResponse.model_validate(payment_obj)
 
 
@@ -135,17 +84,7 @@ async def update_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PaymentResponse:
 	"""Обновить платёж. Изменять может владелец объекта."""
-	payment_obj = await PaymentService.get_owned(payment_id, current_user.id, db)
-
-	updates = payload.model_dump(exclude_unset=True)
-	for field, value in updates.items():
-		setattr(payment_obj, field, value)
-
-	if 'status' in updates:
-		payment_obj = await PaymentService.update_payment_status(payment_obj, updates['status'], db)
-
-	await db.commit()
-	await db.refresh(payment_obj)
+	payment_obj = await PaymentService.update(payment_id, current_user.id, payload, db)
 	return PaymentResponse.model_validate(payment_obj)
 
 
@@ -156,7 +95,5 @@ async def delete_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
 	"""Удалить платёж. Доступно владельцу объекта."""
-	payment_obj = await PaymentService.get_owned(payment_id, current_user.id, db)
-	await db.delete(payment_obj)
-	await db.commit()
+	await PaymentService.delete(payment_id, current_user.id, db)
 	return Response(status_code=status.HTTP_204_NO_CONTENT)

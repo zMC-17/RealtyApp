@@ -1,5 +1,5 @@
 """Сервис для управления объектами недвижимости (CRUD)."""
-from typing import Annotated, List
+from typing import List
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -14,7 +14,7 @@ class PropertyService:
 	async def list_owned(owner_id: int, db: AsyncSession) -> List[Property]:
 		stmt = select(Property).where(Property.owner_id == owner_id).order_by(Property.created_at.desc())
 		result = await db.execute(stmt)
-		return result.scalars().all()
+		return list(result.scalars().all())
 
 	@staticmethod
 	async def create(owner_id: int, payload: PropertyCreate, db: AsyncSession) -> Property:
@@ -27,6 +27,8 @@ class PropertyService:
 		)
 		db.add(prop)
 		await db.flush()
+		await db.commit()
+		await db.refresh(prop)
 		return prop
 
 	@staticmethod
@@ -50,9 +52,12 @@ class PropertyService:
 		for field, value in updates.items():
 			setattr(prop, field, value)
 		await db.flush()
+		await db.commit()
+		await db.refresh(prop)
 		return prop
 
 	@staticmethod
 	async def delete(property_id: int, owner_id: int, db: AsyncSession) -> None:
 		prop = await PropertyService.get_if_owned(property_id, owner_id, db)
 		await db.delete(prop)
+		await db.commit()

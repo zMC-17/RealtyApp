@@ -13,6 +13,56 @@ from app.schemas.request import RequestCreate, RequestUpdate
 
 class RequestService:
 	@staticmethod
+	async def list_related_requests(user_id: int, db: AsyncSession) -> List[MaintenanceRequest]:
+		"""Получить все заявки, связанные с пользователем."""
+		from app.services.contract_service import ContractService
+
+		contract_ids = []
+		for contract in await ContractService.list_related_contracts(user_id, db):
+			contract_ids.append(contract.id)
+
+		return await RequestService._list_requests_for_contracts(contract_ids, db)
+
+	@staticmethod
+	async def list_owner_requests(owner_id: int, db: AsyncSession) -> List[MaintenanceRequest]:
+		"""Получить все заявки по объектам владельца."""
+		from app.services.contract_service import ContractService
+
+		contract_ids = []
+		for contract in await ContractService.list_owner_contracts(owner_id, db):
+			contract_ids.append(contract.id)
+
+		return await RequestService._list_requests_for_contracts(contract_ids, db)
+
+	@staticmethod
+	async def list_tenant_requests(tenant_id: int, db: AsyncSession) -> List[MaintenanceRequest]:
+		"""Получить все заявки арендатора."""
+		from app.services.contract_service import ContractService
+
+		contract_ids = []
+		for contract in await ContractService.list_tenant_contracts(tenant_id, db):
+			contract_ids.append(contract.id)
+
+		return await RequestService._list_requests_for_contracts(contract_ids, db)
+
+	@staticmethod
+	async def list_contract_requests(contract_id: int, user_id: int, db: AsyncSession) -> List[MaintenanceRequest]:
+		"""Получить заявки по одному договору после проверки доступа."""
+		from app.services.contract_service import ContractService
+
+		await ContractService.get_with_access(contract_id, user_id, db)
+		return await RequestService._list_requests_for_contracts([contract_id], db)
+
+	@staticmethod
+	async def _list_requests_for_contracts(contract_ids: list[int], db: AsyncSession) -> List[MaintenanceRequest]:
+		if not contract_ids:
+			return []
+
+		stmt = select(MaintenanceRequest).where(MaintenanceRequest.contract_id.in_(contract_ids)).order_by(MaintenanceRequest.created_at.desc())
+		result = await db.execute(stmt)
+		return list(result.scalars().all())
+
+	@staticmethod
 	async def create_request(payload: RequestCreate, tenant_user_id: int, db: AsyncSession) -> MaintenanceRequest:
 		# Verify contract exists and tenant is the contract tenant
 		stmt = select(Contract).where(Contract.id == payload.contract_id)
@@ -31,21 +81,28 @@ class RequestService:
 		)
 		db.add(req)
 		await db.flush()
+		await db.commit()
+		await db.refresh(req)
 		return req
 
 	@staticmethod
-	async def update_request(request_obj: MaintenanceRequest, updater_user_id: int, db: AsyncSession, payload: RequestUpdate) -> MaintenanceRequest:
-		# Only owner of property can update status/message via router checks; assume caller validated access
+	async def update_request(request_id: int, owner_id: int, db: AsyncSession, payload: RequestUpdate) -> MaintenanceRequest:
+		"""Обновить заявку и сразу сохранить изменения."""
+		request_obj = await RequestService.get_owned(request_id, owner_id, db)
 		updates = payload.model_dump(exclude_unset=True)
 		for field, value in updates.items():
 			setattr(request_obj, field, value)
 		await db.flush()
+		await db.commit()
+		await db.refresh(request_obj)
 		return request_obj
 
 	@staticmethod
-	async def delete_request(request_obj: MaintenanceRequest, deleter_user_id: int, db: AsyncSession) -> None:
-		# Assume caller checked ownership/access
+	async def delete_request(request_id: int, owner_id: int, db: AsyncSession) -> None:
+		"""Удалить заявку и сохранить удаление."""
+		request_obj = await RequestService.get_owned(request_id, owner_id, db)
 		await db.delete(request_obj)
+		await db.commit()
 
 	@staticmethod
 	async def get_with_access(request_id: int, user_id: int, db: AsyncSession) -> tuple[MaintenanceRequest, int]:
