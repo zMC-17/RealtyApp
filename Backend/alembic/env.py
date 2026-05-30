@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 # путь до приложения
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.core.config import settings
-from app.core.database import Base
+from app.core.config import settings  # type: ignore[import-not-found]
+from app.core.database import Base  # type: ignore[import-not-found]
+
 
 # Alembic Config
 config = context.config

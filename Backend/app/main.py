@@ -1,6 +1,7 @@
 """Основной модуль FastAPI приложения"""
 from fastapi import FastAPI
 from app.core.config import settings
+from app.routers import auth
 
 # Импорт моделей для регистрации в Base (нужно для миграций Alembic)
 from app.models.user import User
@@ -16,6 +17,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Подключаем роутеры
+app.include_router(auth.router)
 
 @app.get("/health")
 async def health_check():
