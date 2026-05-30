@@ -9,27 +9,10 @@ from app.core.dependencies import get_current_user, get_db
 from app.models.property import Property
 from app.models.user import User
 from app.schemas.property import PropertyCreate, PropertyResponse, PropertyUpdate
+from app.services.property_service import PropertyService
 
 
 router = APIRouter(prefix="/properties", tags=["properties"])
-
-
-async def _get_owned_property(
-	property_id: int,
-	current_user: User,
-	db: AsyncSession,
-) -> Property:
-	"""Получить объект и проверить, что он принадлежит текущему пользователю."""
-	result = await db.execute(select(Property).where(Property.id == property_id))
-	property_obj = result.scalars().first()
-
-	if property_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этому объекту")
-
-	return property_obj
 
 
 @router.get("/me", response_model=list[PropertyResponse])
@@ -38,13 +21,8 @@ async def list_my_properties(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PropertyResponse]:
 	"""Список объектов текущего владельца."""
-	result = await db.execute(
-		select(Property)
-		.where(Property.owner_id == current_user.id)
-		.order_by(Property.created_at.desc())
-	)
-	properties = result.scalars().all()
-	return [PropertyResponse.model_validate(item) for item in properties]
+	props = await PropertyService.list_owned(current_user.id, db)
+	return [PropertyResponse.model_validate(item) for item in props]
 
 
 @router.post("", response_model=PropertyResponse, status_code=status.HTTP_201_CREATED)
@@ -54,18 +32,9 @@ async def create_property(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PropertyResponse:
 	"""Создать объект недвижимости для текущего пользователя."""
-	property_obj = Property(
-		owner_id=current_user.id,
-		title=payload.title,
-		address=payload.address,
-		description=payload.description,
-		property_type=payload.property_type,
-	)
-
-	db.add(property_obj)
+	property_obj = await PropertyService.create(current_user.id, payload, db)
 	await db.commit()
 	await db.refresh(property_obj)
-
 	return PropertyResponse.model_validate(property_obj)
 
 
@@ -76,7 +45,7 @@ async def get_property(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PropertyResponse:
 	"""Получить один объект, если он принадлежит текущему пользователю."""
-	property_obj = await _get_owned_property(property_id, current_user, db)
+	property_obj = await PropertyService.get_if_owned(property_id, current_user.id, db)
 	return PropertyResponse.model_validate(property_obj)
 
 
@@ -88,12 +57,7 @@ async def update_property(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PropertyResponse:
 	"""Обновить объект недвижимости."""
-	property_obj = await _get_owned_property(property_id, current_user, db)
-
-	updates = payload.model_dump(exclude_unset=True)
-	for field, value in updates.items():
-		setattr(property_obj, field, value)
-
+	property_obj = await PropertyService.update(property_id, current_user.id, payload, db)
 	await db.commit()
 	await db.refresh(property_obj)
 	return PropertyResponse.model_validate(property_obj)
@@ -106,7 +70,6 @@ async def delete_property(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
 	"""Удалить объект недвижимости."""
-	property_obj = await _get_owned_property(property_id, current_user, db)
-	await db.delete(property_obj)
+	await PropertyService.delete(property_id, current_user.id, db)
 	await db.commit()
 	return Response(status_code=status.HTTP_204_NO_CONTENT)

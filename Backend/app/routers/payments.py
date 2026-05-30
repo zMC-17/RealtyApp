@@ -11,49 +11,10 @@ from app.models.payment import Payment
 from app.models.property import Property
 from app.models.user import User
 from app.schemas.payment import PaymentCreate, PaymentResponse, PaymentUpdate
+from app.services.payment_service import PaymentService
 
 
 router = APIRouter(prefix="/payments", tags=["payments"])
-
-
-async def _get_contract_and_property(
-	contract_id: int,
-	db: AsyncSession,
-) -> tuple[Contract, Property]:
-	"""Получить договор и связанный объект."""
-	contract_result = await db.execute(select(Contract).where(Contract.id == contract_id))
-	contract_obj = contract_result.scalars().first()
-
-	if contract_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Договор не найден")
-
-	property_result = await db.execute(select(Property).where(Property.id == contract_obj.property_id))
-	property_obj = property_result.scalars().first()
-
-	if property_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект по договору не найден")
-
-	return contract_obj, property_obj
-
-
-async def _get_payment_with_access(
-	payment_id: int,
-	current_user: User,
-	db: AsyncSession,
-) -> Payment:
-	"""Получить платёж и проверить доступ к нему."""
-	result = await db.execute(select(Payment).where(Payment.id == payment_id))
-	payment_obj = result.scalars().first()
-
-	if payment_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден")
-
-	contract_obj, property_obj = await _get_contract_and_property(payment_obj.contract_id, db)
-
-	if current_user.id not in (contract_obj.tenant_id, property_obj.owner_id):
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этому платежу")
-
-	return payment_obj
 
 
 async def _list_payments_for_contracts(
@@ -122,10 +83,8 @@ async def list_contract_payments(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[PaymentResponse]:
 	"""Платежи по одному договору."""
-	contract_obj, property_obj = await _get_contract_and_property(contract_id, db)
-
-	if current_user.id not in (contract_obj.tenant_id, property_obj.owner_id):
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к платежам этого договора")
+	from app.services.contract_service import ContractService
+	_, _ = await ContractService.get_with_access(contract_id, current_user.id, db)
 
 	result = await db.execute(
 		select(Payment).where(Payment.contract_id == contract_id).order_by(Payment.due_date.desc())
@@ -141,20 +100,17 @@ async def create_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PaymentResponse:
 	"""Создать платеж для договора. Доступно владельцу объекта."""
-	contract_obj, property_obj = await _get_contract_and_property(payload.contract_id, db)
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создавать платежи может только владелец объекта")
-
-	payment_obj = Payment(
-		contract_id=payload.contract_id,
+	from app.services.contract_service import ContractService
+	contract_obj, _ = await ContractService.get_with_access(payload.contract_id, current_user.id, db)
+	payment_obj = await PaymentService.create_payment_for_owner(
+		contract=contract_obj,
+		owner_id=current_user.id,
 		amount=payload.amount,
 		due_date=payload.due_date,
 		status=payload.status,
 		comment=payload.comment,
+		db=db,
 	)
-
-	db.add(payment_obj)
 	await db.commit()
 	await db.refresh(payment_obj)
 	return PaymentResponse.model_validate(payment_obj)
@@ -167,7 +123,7 @@ async def get_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PaymentResponse:
 	"""Получить платёж по ID."""
-	payment_obj = await _get_payment_with_access(payment_id, current_user, db)
+	payment_obj, _ = await PaymentService.get_with_access(payment_id, current_user.id, db)
 	return PaymentResponse.model_validate(payment_obj)
 
 
@@ -179,20 +135,14 @@ async def update_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PaymentResponse:
 	"""Обновить платёж. Изменять может владелец объекта."""
-	payment_obj = await _get_payment_with_access(payment_id, current_user, db)
-	contract_obj, property_obj = await _get_contract_and_property(payment_obj.contract_id, db)
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Изменять платёж может только владелец объекта")
+	payment_obj = await PaymentService.get_owned(payment_id, current_user.id, db)
 
 	updates = payload.model_dump(exclude_unset=True)
 	for field, value in updates.items():
 		setattr(payment_obj, field, value)
 
-	if payment_obj.status == "paid" and payment_obj.paid_at is None:
-		from datetime import datetime, timezone
-
-		payment_obj.paid_at = datetime.now(timezone.utc)
+	if 'status' in updates:
+		payment_obj = await PaymentService.update_payment_status(payment_obj, updates['status'], db)
 
 	await db.commit()
 	await db.refresh(payment_obj)
@@ -206,12 +156,7 @@ async def delete_payment(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
 	"""Удалить платёж. Доступно владельцу объекта."""
-	payment_obj = await _get_payment_with_access(payment_id, current_user, db)
-	_, property_obj = await _get_contract_and_property(payment_obj.contract_id, db)
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Удалять платёж может только владелец объекта")
-
+	payment_obj = await PaymentService.get_owned(payment_id, current_user.id, db)
 	await db.delete(payment_obj)
 	await db.commit()
 	return Response(status_code=status.HTTP_204_NO_CONTENT)

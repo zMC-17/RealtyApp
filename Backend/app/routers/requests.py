@@ -11,49 +11,10 @@ from app.models.property import Property
 from app.models.request import Request as MaintenanceRequest
 from app.models.user import User
 from app.schemas.request import RequestCreate, RequestResponse, RequestUpdate
+from app.services.request_service import RequestService
 
 
 router = APIRouter(prefix="/requests", tags=["requests"])
-
-
-async def _get_contract_and_property(
-	contract_id: int,
-	db: AsyncSession,
-) -> tuple[Contract, Property]:
-	"""Получить договор и связанный объект."""
-	contract_result = await db.execute(select(Contract).where(Contract.id == contract_id))
-	contract_obj = contract_result.scalars().first()
-
-	if contract_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Договор не найден")
-
-	property_result = await db.execute(select(Property).where(Property.id == contract_obj.property_id))
-	property_obj = property_result.scalars().first()
-
-	if property_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект по договору не найден")
-
-	return contract_obj, property_obj
-
-
-async def _get_request_with_access(
-	request_id: int,
-	current_user: User,
-	db: AsyncSession,
-) -> MaintenanceRequest:
-	"""Получить заявку и проверить доступ."""
-	result = await db.execute(select(MaintenanceRequest).where(MaintenanceRequest.id == request_id))
-	request_obj = result.scalars().first()
-
-	if request_obj is None:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
-
-	contract_obj, property_obj = await _get_contract_and_property(request_obj.contract_id, db)
-
-	if current_user.id not in (contract_obj.tenant_id, property_obj.owner_id):
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этой заявке")
-
-	return request_obj
 
 
 async def _list_requests_for_contracts(
@@ -122,10 +83,8 @@ async def list_contract_requests(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[RequestResponse]:
 	"""Заявки по конкретному договору."""
-	contract_obj, property_obj = await _get_contract_and_property(contract_id, db)
-
-	if current_user.id not in (contract_obj.tenant_id, property_obj.owner_id):
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к заявкам этого договора")
+	from app.services.contract_service import ContractService
+	_, _ = await ContractService.get_with_access(contract_id, current_user.id, db)
 
 	result = await db.execute(
 		select(MaintenanceRequest).where(MaintenanceRequest.contract_id == contract_id).order_by(MaintenanceRequest.created_at.desc())
@@ -141,18 +100,7 @@ async def create_request(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RequestResponse:
 	"""Создать заявку. Доступно только арендатору договора."""
-	contract_obj, _ = await _get_contract_and_property(payload.contract_id, db)
-
-	if contract_obj.tenant_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создавать заявку может только арендатор договора")
-
-	request_obj = MaintenanceRequest(
-		contract_id=payload.contract_id,
-		message=payload.message,
-		status=payload.status,
-	)
-
-	db.add(request_obj)
+	request_obj = await RequestService.create_request(payload, current_user.id, db)
 	await db.commit()
 	await db.refresh(request_obj)
 	return RequestResponse.model_validate(request_obj)
@@ -165,7 +113,7 @@ async def get_request(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RequestResponse:
 	"""Получить заявку по ID."""
-	request_obj = await _get_request_with_access(request_id, current_user, db)
+	request_obj, _ = await RequestService.get_with_access(request_id, current_user.id, db)
 	return RequestResponse.model_validate(request_obj)
 
 
@@ -177,16 +125,8 @@ async def update_request(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RequestResponse:
 	"""Обновить заявку. Изменять может владелец объекта."""
-	request_obj = await _get_request_with_access(request_id, current_user, db)
-	contract_obj, property_obj = await _get_contract_and_property(request_obj.contract_id, db)
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Изменять заявку может только владелец объекта")
-
-	updates = payload.model_dump(exclude_unset=True)
-	for field, value in updates.items():
-		setattr(request_obj, field, value)
-
+	request_obj = await RequestService.get_owned(request_id, current_user.id, db)
+	request_obj = await RequestService.update_request(request_obj, current_user.id, db, payload)
 	await db.commit()
 	await db.refresh(request_obj)
 	return RequestResponse.model_validate(request_obj)
@@ -199,12 +139,7 @@ async def delete_request(
 	db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
 	"""Удалить заявку. Доступно владельцу объекта."""
-	request_obj = await _get_request_with_access(request_id, current_user, db)
-	_, property_obj = await _get_contract_and_property(request_obj.contract_id, db)
-
-	if property_obj.owner_id != current_user.id:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Удалять заявку может только владелец объекта")
-
-	await db.delete(request_obj)
+	request_obj = await RequestService.get_owned(request_id, current_user.id, db)
+	await RequestService.delete_request(request_obj, current_user.id, db)
 	await db.commit()
 	return Response(status_code=status.HTTP_204_NO_CONTENT)
