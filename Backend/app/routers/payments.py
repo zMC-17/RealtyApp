@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.payment import PaymentCreate, PaymentResponse, PaymentUpdate
+from app.schemas.payment import PaymentConfirmationRequest, PaymentCreate, PaymentResponse, PaymentUpdate
 from app.services.payment_service import PaymentService
 
 
@@ -62,6 +62,40 @@ async def create_payment(
 ) -> PaymentResponse:
 	"""Создать платеж для договора. Доступно владельцу объекта."""
 	payment_obj = await PaymentService.create_payment_for_owner(payload, current_user.id, db)
+	return PaymentResponse.model_validate(payment_obj)
+
+
+@router.post("/{payment_id}/request-confirmation", response_model=PaymentResponse)
+async def request_payment_confirmation(
+	payment_id: int,
+	payload: PaymentConfirmationRequest,
+	current_user: Annotated[User, Depends(get_current_user)],
+	db: Annotated[AsyncSession, Depends(get_db)],
+) -> PaymentResponse:
+	"""Арендатор отправляет чек на подтверждение оплаты."""
+	payment_obj = await PaymentService.request_confirmation(payment_id, current_user.id, payload, db)
+	return PaymentResponse.model_validate(payment_obj)
+
+
+@router.post("/{payment_id}/confirm", response_model=PaymentResponse)
+async def confirm_payment(
+	payment_id: int,
+	current_user: Annotated[User, Depends(get_current_user)],
+	db: Annotated[AsyncSession, Depends(get_db)],
+) -> PaymentResponse:
+	"""Владелец подтверждает оплату после проверки чека."""
+	payment_obj = await PaymentService.confirm_payment(payment_id, current_user.id, db)
+	return PaymentResponse.model_validate(payment_obj)
+
+
+@router.post("/{payment_id}/reject", response_model=PaymentResponse)
+async def reject_payment_confirmation(
+	payment_id: int,
+	current_user: Annotated[User, Depends(get_current_user)],
+	db: Annotated[AsyncSession, Depends(get_db)],
+) -> PaymentResponse:
+	"""Владелец отклоняет подтверждение и возвращает платёж в ожидание оплаты."""
+	payment_obj = await PaymentService.reject_confirmation(payment_id, current_user.id, db)
 	return PaymentResponse.model_validate(payment_obj)
 
 

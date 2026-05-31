@@ -9,8 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.contract import Contract
 from app.models.payment import Payment
 from app.models.property import Property
-from app.models.user import User
-from app.schemas.payment import PaymentCreate, PaymentUpdate
+from app.schemas.payment import PaymentConfirmationRequest, PaymentCreate, PaymentUpdate
+
+
+PAYMENT_ALLOWED_STATUSES = {"pending", "waiting_confirmation", "overdue", "paid"}
+PAYMENT_TRANSITIONS = {
+	"pending": {"waiting_confirmation", "overdue"},
+	"waiting_confirmation": {"pending", "overdue", "paid"},
+	"overdue": {"waiting_confirmation", "paid"},
+	"paid": set(),
+}
 
 
 def _add_months(orig_date: date, months: int) -> date:
@@ -77,6 +85,53 @@ class PaymentService:
 		return list(result.scalars().all())
 
 	@staticmethod
+	async def _load_payment_context(payment_id: int, db: AsyncSession) -> tuple[Payment, Contract, int]:
+		stmt = select(Payment).where(Payment.id == payment_id)
+		result = await db.execute(stmt)
+		payment = result.scalars().first()
+
+		if payment is None:
+			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден")
+
+		contract_stmt = select(Contract).where(Contract.id == payment.contract_id)
+		contract_result = await db.execute(contract_stmt)
+		contract = contract_result.scalars().first()
+
+		if contract is None:
+			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Договор не найден")
+
+		prop_stmt = select(Property).where(Property.id == contract.property_id)
+		prop_result = await db.execute(prop_stmt)
+		prop = prop_result.scalars().first()
+
+		if prop is None:
+			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
+
+		return payment, contract, prop.owner_id
+
+	@staticmethod
+	def _validate_transition(current_status: str, new_status: str) -> None:
+		if new_status not in PAYMENT_ALLOWED_STATUSES:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недопустимый статус платежа")
+
+		allowed_transitions = PAYMENT_TRANSITIONS.get(current_status, set())
+		if new_status not in allowed_transitions and new_status != current_status:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недопустимый переход статуса платежа")
+
+	@staticmethod
+	async def _apply_status(payment: Payment, new_status: str, db: AsyncSession) -> Payment:
+		PaymentService._validate_transition(payment.status, new_status)
+		payment.status = new_status
+
+		if new_status == "paid":
+			payment.paid_at = datetime.now(timezone.utc)
+		elif new_status != "waiting_confirmation":
+			payment.paid_at = None
+
+		await db.flush()
+		return payment
+
+	@staticmethod
 	async def generate_payments_for_contract(contract: Contract, db: AsyncSession) -> List[Payment]:
 		"""Создать платежи на каждый месяц договора (с start_date до end_date включительно).
 
@@ -105,6 +160,8 @@ class PaymentService:
 				amount=contract.monthly_payment,
 				due_date=due,
 				status="pending",
+				payment_proof_url=None,
+				confirmation_requested_at=None,
 			)
 			db.add(payment)
 			payments.append(payment)
@@ -126,19 +183,13 @@ class PaymentService:
 			due_date=payload.due_date,
 			status=payload.status,
 			comment=payload.comment,
+			payment_proof_url=payload.payment_proof_url,
+			confirmation_requested_at=payload.confirmation_requested_at,
 		)
 		db.add(payment)
 		await db.flush()
 		await db.commit()
 		await db.refresh(payment)
-		return payment
-
-	@staticmethod
-	async def update_payment_status(payment: Payment, new_status: str, db: AsyncSession) -> Payment:
-		payment.status = new_status
-		if new_status == "paid" and payment.paid_at is None:
-			payment.paid_at = datetime.now(timezone.utc)
-		await db.flush()
 		return payment
 
 	@staticmethod
@@ -150,9 +201,59 @@ class PaymentService:
 		for field, value in updates.items():
 			setattr(payment, field, value)
 
-		if "status" in updates:
-			payment = await PaymentService.update_payment_status(payment, updates["status"], db)
+		await db.commit()
+		await db.refresh(payment)
+		return payment
 
+	@staticmethod
+	async def request_confirmation(payment_id: int, tenant_id: int, payload: PaymentConfirmationRequest, db: AsyncSession) -> Payment:
+		"""Отправить платёж на подтверждение вместе с чеком."""
+		payment, contract, _ = await PaymentService._load_payment_context(payment_id, db)
+
+		if contract.tenant_id != tenant_id:
+			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Запрос подтверждения доступен только арендатору")
+
+		if payment.status not in {"pending", "overdue"}:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Подтверждение можно запросить только для ожидающего платежа")
+
+		payment.payment_proof_url = payload.payment_proof_url
+		payment.comment = payload.comment
+		payment.confirmation_requested_at = datetime.now(timezone.utc)
+		await PaymentService._apply_status(payment, "waiting_confirmation", db)
+		await db.commit()
+		await db.refresh(payment)
+		return payment
+
+	@staticmethod
+	async def confirm_payment(payment_id: int, owner_id: int, db: AsyncSession) -> Payment:
+		"""Подтвердить оплату после проверки чека."""
+		payment, _, prop_owner_id = await PaymentService._load_payment_context(payment_id, db)
+
+		if prop_owner_id != owner_id:
+			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Подтверждать оплату может только владелец объекта")
+
+		if payment.status != "waiting_confirmation":
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Подтвердить можно только платеж в статусе ожидания подтверждения")
+
+		await PaymentService._apply_status(payment, "paid", db)
+		await db.commit()
+		await db.refresh(payment)
+		return payment
+
+	@staticmethod
+	async def reject_confirmation(payment_id: int, owner_id: int, db: AsyncSession) -> Payment:
+		"""Отклонить подтверждение и вернуть платёж в ожидаемое состояние."""
+		payment, _, prop_owner_id = await PaymentService._load_payment_context(payment_id, db)
+
+		if prop_owner_id != owner_id:
+			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Отклонять подтверждение может только владелец объекта")
+
+		if payment.status != "waiting_confirmation":
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Отклонить можно только платеж в статусе ожидания подтверждения")
+
+		payment.confirmation_requested_at = None
+		payment.status = "overdue" if payment.due_date < date.today() else "pending"
+		await db.flush()
 		await db.commit()
 		await db.refresh(payment)
 		return payment
@@ -171,31 +272,12 @@ class PaymentService:
 		Returns:
 			tuple[Payment, owner_id]: платёж и ID владельца объекта
 		"""
-		stmt = select(Payment).where(Payment.id == payment_id)
-		result = await db.execute(stmt)
-		payment = result.scalars().first()
+		payment, contract, owner_id = await PaymentService._load_payment_context(payment_id, db)
 
-		if payment is None:
-			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден")
-
-		contract_stmt = select(Contract).where(Contract.id == payment.contract_id)
-		contract_result = await db.execute(contract_stmt)
-		contract = contract_result.scalars().first()
-
-		if contract is None:
-			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Договор не найден")
-
-		prop_stmt = select(Property).where(Property.id == contract.property_id)
-		prop_result = await db.execute(prop_stmt)
-		prop = prop_result.scalars().first()
-
-		if prop is None:
-			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
-
-		if user_id not in (contract.tenant_id, prop.owner_id):
+		if user_id not in (contract.tenant_id, owner_id):
 			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этому платежу")
 
-		return payment, prop.owner_id
+		return payment, owner_id
 
 	@staticmethod
 	async def get_owned(payment_id: int, owner_id: int, db: AsyncSession) -> Payment:

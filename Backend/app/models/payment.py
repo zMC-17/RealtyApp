@@ -19,5 +19,7 @@ class Payment(BaseModel):
     paid_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     comment: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    payment_proof_url: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    confirmation_requested_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     contract: Mapped['Contract'] = relationship('Contract', back_populates='payments')
