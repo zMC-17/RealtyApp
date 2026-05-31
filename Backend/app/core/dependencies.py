@@ -1,12 +1,13 @@
 """Зависимости для FastAPI роутов"""
-from typing import AsyncGenerator, Annotated, Optional
+from typing import AsyncGenerator
 
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import async_session_maker
-from app.core.security import verify_token
+from app.core.security import verify_token, security
 from app.models.user import User
 
 
@@ -20,42 +21,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    authorization: Annotated[Optional[str], Header()] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """Получить текущего пользователя из JWT токена
+    """Получить текущего пользователя из JWT токена"""
 
-    Эта зависимость:
-    1. Извлекает токен из Authorization заголовка
-    2. Валидирует токен
-    3. Ищет пользователя в БД
-    4. Возвращает пользователя
-
-    Если что-то не так → выбрасывает 401 ошибка
-
-    Использование в роутах:
-    @router.get("/me")
-    async def get_profile(user: User = Depends(get_current_user)):
-        return user
-    """
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Authorization header required",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    # Извлекаем токен из "Bearer <token>"
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise ValueError("Invalid scheme")
-    except (ValueError, IndexError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+    # Извлекаем токен из схемы HTTPBearer
+    token = credentials.credentials
 
     # Валидируем токен
     payload = verify_token(token)

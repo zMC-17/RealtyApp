@@ -7,6 +7,10 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
+from fastapi.security import HTTPBearer
+
+security = HTTPBearer(auto_error=True, description="JWT токен для аутентификации")  # Схема для извлечения токена из заголовка Authorization
+
 # Контекст для хеширования паролей с bcrypt.
 # Примечание: passlib может выдать предупреждение про bcrypt версию,
 # но хеширование работает корректно.

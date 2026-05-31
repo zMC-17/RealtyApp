@@ -14,25 +14,8 @@ class AuthService:
     async def register_user(
         user_data: UserCreate,
         db: AsyncSession
-    ) -> User:
-        """Зарегистрировать нового пользователя
-
-        Процесс:
-        1. Проверяем что email не существует
-        2. Хешируем пароль
-        3. Создаём пользователя в БД
-        4. Возвращаем созданного пользователя
-
-        Args:
-            user_data: Данные для регистрации (имя, email, пароль)
-            db: Async сессия БД
-
-        Returns:
-            Созданный пользователь
-
-        Raises:
-            ValueError: Если email уже зарегистрирован
-        """
+    ) -> Token:
+        """Зарегистрировать нового пользователя + выдать токен"""
         # Проверяем что email уникален
         stmt = select(User).where(User.email == user_data.email)
         result = await db.execute(stmt)
@@ -55,14 +38,23 @@ class AuthService:
         db.add(new_user)
         await db.flush()  # Чтобы получить ID
 
-        return new_user
+        # Создаём access токен
+        access_token = create_access_token(
+            data={"sub": str(new_user.id)}
+        )
+
+        token = Token(
+            access_token=access_token
+        )
+
+        return token
 
     @staticmethod
     async def login_user(
         email: str,
         password: str,
         db: AsyncSession
-    ) -> tuple[User, Token]:
+    ) -> Token:
         """Логин пользователя и создание токенов
 
         Процесс:
@@ -104,6 +96,4 @@ class AuthService:
             access_token=access_token
         )
 
-        return user, token
-
-    # Примечание: поддержка refresh токенов удалена — остаётся только access токен
+        return token

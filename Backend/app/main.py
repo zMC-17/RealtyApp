@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from app.core.config import settings
 from app.routers import auth, contracts, payments, properties, requests
+from fastapi.middleware.cors import CORSMiddleware
 
 # Импорт моделей для регистрации в Base (нужно для миграций Alembic)
 from app.models.user import User
@@ -15,6 +16,14 @@ app = FastAPI(
     title="Realty Management API",
     description="API для управления недвижимостью и арендой",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 # Подключаем роутеры

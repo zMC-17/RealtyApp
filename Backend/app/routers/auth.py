@@ -12,11 +12,11 @@ from app.models.user import User
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
     db: Annotated[AsyncSession, Depends(get_db)]
-) -> UserResponse:
+) -> Token:
     """Регистрация нового пользователя
 
     Процесс:
@@ -28,9 +28,9 @@ async def register(
     6. Возвращаем пользователя (без пароля!)
     """
     try:
-        new_user = await AuthService.register_user(user_data, db)
+        token = await AuthService.register_user(user_data, db)
         await db.commit()
-        return UserResponse.model_validate(new_user)
+        return token
     except ValueError as e:
         await db.rollback()
         raise HTTPException(
@@ -55,7 +55,7 @@ async def login(
      Клиент сохраняет access_token и отправляет его в каждом запросе.
     """
     try:
-        user, token = await AuthService.login_user(
+        token = await AuthService.login_user(
             credentials.email,
             credentials.password,
             db
@@ -68,9 +68,6 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
-
-
-
 
 
 @router.get("/me", response_model=UserResponse)
