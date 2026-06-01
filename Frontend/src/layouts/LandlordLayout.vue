@@ -1,39 +1,46 @@
 <template>
-  <div class="tenant-layout">
+  <div class="landlord-layout">
     <!-- Верхняя навигационная панель -->
     <nav class="nav-bar">
       <router-link
-        to="/app/tenant/dashboard"
+        to="/app/landlord/properties"
         class="nav-tab"
-        :class="{ active: isActive('TenantDashboard') }"
+        :class="{ active: isActive('LandlordProperties') }"
       >
-        <span class="nav-icon">📊</span>
-        <span class="nav-label">Панель управления</span>
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Объекты</span>
       </router-link>
       <router-link
-        to="/app/tenant/contracts"
+        to="/app/landlord/contracts"
         class="nav-tab"
-        :class="{ active: isActive('TenantContracts') }"
+        :class="{ active: isActive('LandlordContracts') }"
       >
         <span class="nav-icon">📋</span>
         <span class="nav-label">Договоры</span>
       </router-link>
       <router-link
-        to="/app/tenant/payments"
+        to="/app/landlord/payments"
         class="nav-tab"
-        :class="{ active: isActive('TenantPayments') }"
+        :class="{ active: isActive('LandlordPayments') }"
       >
-
-        <span class="nav-icon">💳</span>
+        <span class="nav-icon">💰</span>
         <span class="nav-label">Платежи</span>
       </router-link>
       <router-link
-        to="/app/tenant/requests"
+        to="/app/landlord/requests"
         class="nav-tab"
-        :class="{ active: isActive('TenantRequests') }"
+        :class="{ active: isActive('LandlordRequests') }"
       >
-        <span class="nav-icon">🔧</span>
+        <span class="nav-icon">📬</span>
         <span class="nav-label">Заявки</span>
+      </router-link>
+      <router-link
+        to="/app/landlord/statistics"
+        class="nav-tab"
+        :class="{ active: isActive('LandlordStatistics') }"
+      >
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Статистика</span>
       </router-link>
     </nav>
 
@@ -45,14 +52,6 @@
 </template>
 
 <script setup lang="ts">
-/**
- * TenantLayout - Вложенный layout для функционала арендатора
- *
- * Отображает боковую панель с кнопками разделов:
- * - Договоры
- * - Платежи
- * - Заявки
- */
 
 import { useRoute } from 'vue-router';
 
@@ -65,7 +64,7 @@ const isActive = (routeName: string) => route.name === routeName;
 </script>
 
 <style scoped>
-.tenant-layout {
+.landlord-layout {
   display: flex;
   flex-direction: column;
   width: 100%;

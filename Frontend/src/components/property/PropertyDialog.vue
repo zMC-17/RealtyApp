@@ -97,7 +97,7 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
-import type { Property } from '../../shared/types';
+import type { Property } from '../../types';
 
 type DialogMode = 'create' | 'edit';
 

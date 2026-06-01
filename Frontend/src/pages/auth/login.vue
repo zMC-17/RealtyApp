@@ -1,112 +1,51 @@
+<!-- pages/auth/login.vue -->
 <template>
-  <div class="auth-container">
-    <div class="auth-box">
-      <h1 class="auth-title">RealtyApp</h1>
-      <p class="auth-subtitle">Информационная система управления арендой недвижимости</p>
+  <div class="login-page">
+    <h2>Вход в систему</h2>
 
-      <!-- Форма входа -->
-      <div v-if="!showRegister" class="auth-form">
-        <h2>Вход в систему</h2>
-
-        <div class="form-group">
-          <label for="login-username">Имя пользователя</label>
-          <input
-            id="login-username"
-            v-model="loginForm.username"
-            type="text"
-            placeholder="landlord_user"
-            @keyup.enter="handleLogin"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="login-password">Пароль</label>
-          <input
-            id="login-password"
-            v-model="loginForm.password"
-            type="password"
-            placeholder="••••••••"
-            @keyup.enter="handleLogin"
-          />
-        </div>
-
-        <button class="btn-primary" :disabled="authStore.isLoading" @click="handleLogin">
-          {{ authStore.isLoading ? 'Загрузка...' : 'Войти' }}
-        </button>
-
-        <div class="demo-credentials">
-          <p class="demo-title">Demo учётные данные:</p>
-          <p><strong>Владелец:</strong> landlord_user</p>
-          <p><strong>Арендатор:</strong> tenant_user</p>
-          <p><strong>Пароль:</strong> любой</p>
-        </div>
+    <form @submit.prevent="handleLogin">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          v-model="email"
+          type="email"
+          required
+          placeholder="ivan@example.com"
+        />
       </div>
 
-      <!-- Форма регистрации -->
-      <div v-else class="auth-form">
-        <h2>Создать аккаунт</h2>
-
-        <div class="form-group">
-          <label for="register-username">Имя пользователя</label>
-          <input
-            id="register-username"
-            v-model="registerForm.username"
-            type="text"
-            placeholder="your_username"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="register-password">Пароль</label>
-          <input
-            id="register-password"
-            v-model="registerForm.password"
-            type="password"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="register-password-confirm">Подтверждение пароля</label>
-          <input
-            id="register-password-confirm"
-            v-model="registerForm.passwordConfirm"
-            type="password"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <button class="btn-primary" :disabled="authStore.isLoading" @click="handleRegister">
-          {{ authStore.isLoading ? 'Загрузка...' : 'Зарегистрироваться' }}
-        </button>
-
-        <p class="form-hint">
-          Уже есть аккаунт?
-          <button class="link-btn" @click="showRegister = false">
-            Войти
-          </button>
-        </p>
+      <div class="form-group">
+        <label for="password">Пароль</label>
+        <input
+          id="password"
+          v-model="password"
+          type="password"
+          required
+          placeholder="Минимум 8 символов"
+        />
       </div>
 
-      <!-- Сообщение об ошибке -->
-      <div v-if="errorMessage" class="error-message">
-        {{ errorMessage }}
+      <div v-if="authStore.error" class="error-message">
+        {{ authStore.error }}
       </div>
-    </div>
+
+      <button
+        type="submit"
+        :disabled="authStore.loading"
+      >
+        {{ authStore.loading ? 'Вход...' : 'Войти' }}
+      </button>
+
+      <p class="register-link">
+        Нет аккаунта?
+        <router-link to="/auth/register">Зарегистрироваться</router-link>
+      </p>
+    </form>
   </div>
 </template>
 
 <script setup lang="ts">
-/**
- * Страница аутентификации (вход/регистрация)
- *
- * Mock JWT аутентификация:
- * - Демо учётные данные: landlord_user и tenant_user
- * - Token сохраняется в localStorage
- * - Сеанс восстанавливается при перезагрузке приложения
- * - После успешного входа редирект на /app/landlord/properties
- */
-
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
@@ -114,72 +53,19 @@ import { useAuthStore } from '../../stores/auth';
 const router = useRouter();
 const authStore = useAuthStore();
 
-// UI state
-const showRegister = ref(false);
-const errorMessage = ref('');
+const email = ref('');
+const password = ref('');
 
-// Form data
-const loginForm = ref({
-  username: '',
-  password: '',
-});
-
-const registerForm = ref({
-  username: '',
-  password: '',
-  passwordConfirm: '',
-});
-
-/**
- * Обработка входа
- * Использует mock JWT аутентификацию через auth store
- */
 const handleLogin = async () => {
-  errorMessage.value = '';
+  authStore.clearError();
 
-  if (!loginForm.value.username || !loginForm.value.password) {
-    errorMessage.value = 'Пожалуйста, заполните все поля';
-    return;
-  }
-
-  const success = await authStore.login(loginForm.value.username, loginForm.value.password);
-
-  if (success) {
-    // Успешный вход - редирект на главную страницу
-    router.push({ name: 'LandlordProperties' });
-  } else {
-    // Ошибка входа - использовать сообщение об ошибке из auth store
-    errorMessage.value = authStore.error || 'Ошибка входа';
-  }
-};
-
-/**
- * Обработка регистрации
- * В текущей реализации не доступна (MVP)
- */
-const handleRegister = async () => {
-  errorMessage.value = '';
-
-  if (
-    !registerForm.value.username ||
-    !registerForm.value.password ||
-    !registerForm.value.passwordConfirm
-  ) {
-    errorMessage.value = 'Пожалуйста, заполните все поля';
-    return;
-  }
-
-  if (registerForm.value.password !== registerForm.value.passwordConfirm) {
-    errorMessage.value = 'Пароли не совпадают';
-    return;
-  }
-
-  const success = await authStore.register(registerForm.value.username, registerForm.value.password);
+  const success = await authStore.login({
+    email: email.value,
+    password: password.value,
+  });
 
   if (success) {
     router.push({ name: 'LandlordProperties' });
-  } else {
-    errorMessage.value = authStore.error || 'Ошибка регистрации';
   }
 };
 </script>
