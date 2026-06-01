@@ -11,14 +11,6 @@
         <span class="nav-label">Объекты</span>
       </router-link>
       <router-link
-        to="/app/landlord/contracts"
-        class="nav-tab"
-        :class="{ active: isActive('LandlordContracts') }"
-      >
-        <span class="nav-icon">📋</span>
-        <span class="nav-label">Договоры</span>
-      </router-link>
-      <router-link
         to="/app/landlord/payments"
         class="nav-tab"
         :class="{ active: isActive('LandlordPayments') }"

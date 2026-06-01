@@ -19,7 +19,6 @@ import RegisterPage from '../pages/auth/register.vue'
 
 // Pages - Landlord
 import LandlordPropertiesPage from '../pages/landlord/properties.vue';
-import LandlordContractsPage from '../pages/landlord/contracts.vue';
 import LandlordPaymentsPage from '../pages/landlord/payments.vue';
 import LandlordRequestsPage from '../pages/landlord/requests.vue';
 import LandlordStatisticsPage from '../pages/landlord/statistics.vue';
@@ -68,12 +67,6 @@ const routes: RouteRecordRaw[] = [
             name: 'LandlordProperties',
             component: LandlordPropertiesPage,
             meta: { title: 'Мои объекты' },
-          },
-          {
-            path: 'contracts',
-            name: 'LandlordContracts',
-            component: LandlordContractsPage,
-            meta: { title: 'Договоры аренды' },
           },
           {
             path: 'payments',
