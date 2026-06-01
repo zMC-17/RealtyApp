@@ -1,122 +1,102 @@
-/**
- * Pinia хранилище для управления недвижимостью
- *
- * Управляет состоянием списка объектов недвижимости владельца:
- * - Кэширование данных из mock сервиса
- * - Loading/error состояния
- * - Простые операции CRUD
- *
- * Готово для замены на реальный API
- */
-
+// stores/properties.ts
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import {
-  getPropertiesByOwner,
-  createProperty,
-  updateProperty,
-  deleteProperty,
-} from '../services/mock/properties';
-import type { Property } from '../shared/types';
+import { ref, computed } from 'vue';
+import { propertiesService } from '../services/properties';
+import type { PropertyResponse, PropertyCreate } from '../types/property';
 
 export const usePropertiesStore = defineStore('properties', () => {
-  // State
-  const properties = ref<Property[]>([]);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
+    // ===== Состояние =====
+    const properties = ref<PropertyResponse[]>([]);
+    const loading = ref(false);
+    const error = ref<string | null>(null);
+    const currentProperty = ref<PropertyResponse | null>(null);
 
-  // ============================================================
-  // Actions
-  // ============================================================
+    // ===== Геттеры =====
+    const hasProperties = computed(() => properties.value.length > 0);
+    const propertiesCount = computed(() => properties.value.length);
 
-  /**
-   * Загрузить список недвижимости владельца
-   */
-  const fetchProperties = async (ownerId: string) => {
-    isLoading.value = true;
-    error.value = null;
+    // ===== Действия =====
+    /**
+     * Загрузить список объектов
+     */
+    async function fetchProperties() {
+        loading.value = true;
+        error.value = null;
 
-    try {
-      const data = await getPropertiesByOwner(ownerId);
-      properties.value = data;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка загрузки недвижимости';
-      properties.value = [];
-    } finally {
-      isLoading.value = false;
+        try {
+            const data = await propertiesService.getMyProperties();
+            properties.value = data;
+        } catch (err: any) {
+            error.value = err.response?.data?.detail || 'Ошибка загрузки объектов';
+            console.error('Ошибка загрузки объектов:', err);
+        } finally {
+            loading.value = false;
+        }
     }
-  };
 
-  /**
-   * Добавить новый объект недвижимости
-   */
-  const addProperty = async (
-    ownerId: string,
-    data: Omit<Property, 'id' | 'owner_id' | 'created_at'>
-  ) => {
-    try {
-      const newProperty = await createProperty(ownerId, data);
-      properties.value.push(newProperty);
-      return newProperty;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка создания объекта';
-      throw err;
+    /**
+     * Загрузить один объект
+     */
+    async function fetchProperty(id: number) {
+        loading.value = true;
+        error.value = null;
+
+        try {
+            const data = await propertiesService.getProperty(id);
+            currentProperty.value = data;
+            return data;
+        } catch (err: any) {
+            error.value = err.response?.data?.detail || 'Ошибка загрузки объекта';
+            console.error('Ошибка загрузки объекта:', err);
+            return null;
+        } finally {
+            loading.value = false;
+        }
     }
-  };
 
-  /**
-   * Обновить объект недвижимости
-   */
-  const editProperty = async (
-    propertyId: string,
-    data: Partial<Omit<Property, 'id' | 'owner_id' | 'created_at'>>
-  ) => {
-    try {
-      const updated = await updateProperty(propertyId, data);
-      const index = properties.value.findIndex(p => p.id === propertyId);
-      if (index >= 0) {
-        properties.value[index] = updated;
-      }
-      return updated;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка обновления объекта';
-      throw err;
+    /**
+     * Создать новый объект
+     */
+    async function createProperty(propertyData: PropertyCreate) {
+        loading.value = true;
+        error.value = null;
+
+        try {
+            const newProperty = await propertiesService.createProperty(propertyData);
+            // Добавляем новый объект в начало списка
+            properties.value.unshift(newProperty);
+            return newProperty;
+        } catch (err: any) {
+            error.value = err.response?.data?.detail || 'Ошибка создания объекта';
+            console.error('Ошибка создания объекта:', err);
+            return null;
+        } finally {
+            loading.value = false;
+        }
     }
-  };
 
-  /**
-   * Удалить объект недвижимости
-   */
-  const removeProperty = async (propertyId: string) => {
-    try {
-      await deleteProperty(propertyId);
-      properties.value = properties.value.filter(p => p.id !== propertyId);
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка удаления объекта';
-      throw err;
+    /**
+     * Сбросить ошибку
+     */
+    function clearError() {
+        error.value = null;
     }
-  };
 
-  /**
-   * Очистить состояние
-   */
-  const reset = () => {
-    properties.value = [];
-    error.value = null;
-    isLoading.value = false;
-  };
+    return {
+        // Состояние
+        properties,
+        loading,
+        error,
+        currentProperty,
 
-  return {
-    // State
-    properties,
-    isLoading,
-    error,
+        // Геттеры
+        hasProperties,
+        propertiesCount,
 
-    // Actions
-    fetchProperties,
-    addProperty,
-    editProperty,
-    removeProperty,
-    reset,
-  };
+        // Действия
+        fetchProperties,
+        fetchProperty,
+        createProperty,
+        clearError,
+    };
 });

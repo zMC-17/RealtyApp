@@ -1,262 +1,157 @@
-/**
- * Pinia хранилище для управления пользователем и аутентификацией
- *
- * Реализует mock JWT аутентификацию:
- * - Вход/выход с fake JWT tokens
- * - Сохранение токена в localStorage
- * - Восстановление сеанса при перезагрузке приложения
- * - Переключение между ролями (владелец/арендатор)
- *
- * Готово для замены на реальный API без изменений интерфейса
- */
-
+// stores/auth.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { UserRole, AuthSession, User } from '../shared/types';
-
-const STORAGE_KEY = 'auth_session';
-const TOKEN_PREFIX = 'mock_jwt_';
-
-/**
- * Генерирует fake JWT token для mock аутентификации
- * Формат: mock_jwt_<base64(userId+timestamp)>
- */
-const generateMockToken = (userId: string): string => {
-  const payload = `${userId}:${Date.now()}`;
-  const encoded = btoa(payload);
-  return `${TOKEN_PREFIX}${encoded}`;
-};
-
-/**
- * Mock база данных пользователей для аутентификации
- * Используется для демонстрации и testing
- */
-const MOCK_USERS: Record<string, User> = {
-  landlord_user: {
-    id: 'user_1',
-    email: 'landlord@example.com',
-    username: 'landlord_user',
-    password_hash: 'hashed_password_123', // Fake hash для demo
-    created_at: '2024-01-01T00:00:00Z',
-  },
-  tenant_user: {
-    id: 'user_3',
-    email: 'tenant@example.com',
-    username: 'tenant_user',
-    password_hash: 'hashed_password_456',
-    created_at: '2024-01-05T00:00:00Z',
-  },
-};
-
-/**
- * Validate mock credentials
- * В реальном приложении это было бы запросом к backend API
- */
-const validateCredentials = (username: string): User | null => {
-  const user = MOCK_USERS[username];
-  if (user) {
-    // Simulate network delay
-    return user;
-  }
-  return null;
-};
+import { authService } from '../services/auth';
+import type { UserLogin, UserCreate, UserResponse } from '../types/auth';
 
 export const useAuthStore = defineStore('auth', () => {
-  // State
-  const session = ref<AuthSession | null>(null);
-  const currentRole = ref<UserRole>('landlord');
-  const isLoading = ref(false);
+  // ===== Константы =====
+  const TOKEN_KEY = 'access_token';
+  const USER_KEY = 'user_data';
+
+  // ===== Состояние =====
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
+  const user = ref<UserResponse | null>(loadUser());
+  const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Computed
-  const isAuthenticated = computed(() => session.value !== null);
-  const user = computed(() => session.value?.user ?? null);
-  const accessToken = computed(() => session.value?.access_token ?? null);
+  // ===== Геттеры =====
+  const isAuthenticated = computed(() => !!token.value);
+  const currentUser = computed(() => user.value);
 
-  // ============================================================
-  // Private Helper Actions
-  // ============================================================
-
-  /**
-   * Сохранить сеанс в localStorage
-   */
-  const persistSession = (newSession: AuthSession) => {
+  // ===== Приватные методы =====
+  function loadUser(): UserResponse | null {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
-    } catch (err) {
-      console.error('Failed to persist session:', err);
+      const savedUser = localStorage.getItem(USER_KEY);
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
     }
-  };
+  }
 
+  function saveAuth(accessToken: string) {
+    token.value = accessToken;
+    localStorage.setItem(TOKEN_KEY, accessToken);
+  }
+
+  function clearAuth() {
+    token.value = null;
+    user.value = null;
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }
+
+  // ===== Публичные методы =====
   /**
-   * Удалить сеанс из localStorage
+   * Вход в систему
    */
-  const clearPersistedSession = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (err) {
-      console.error('Failed to clear persisted session:', err);
-    }
-  };
-
-  /**
-   * Восстановить сеанс из localStorage
-   */
-  const restoreSession = () => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const restoredSession: AuthSession = JSON.parse(stored);
-        session.value = restoredSession;
-        currentRole.value = restoredSession.current_role;
-      }
-    } catch (err) {
-      console.error('Failed to restore session:', err);
-      clearPersistedSession();
-    }
-  };
-
-  // ============================================================
-  // Public Actions
-  // ============================================================
-
-  /**
-   * Вход в систему с mock JWT аутентификацией
-   * 
-   * @param username Имя пользователя (landlord_user или tenant_user)
-   * @param _password Пароль (игнорируется в mock режиме)
-   * 
-   * MOCK УЧЁТНЫЕ ДАННЫЕ:
-   * - landlord_user / любой пароль
-   * - tenant_user / любой пароль
-   */
-  const login = async (username: string, _password: string): Promise<boolean> => {
-    isLoading.value = true;
+  async function login(credentials: UserLogin) {
+    loading.value = true;
     error.value = null;
 
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const tokenResponse = await authService.login(credentials);
+      saveAuth(tokenResponse.access_token);
 
-      // Validate mock credentials
-      const mockUser = validateCredentials(username);
-      if (!mockUser) {
-        error.value = 'Неверное имя пользователя или пароль';
-        return false;
-      }
-
-      // Generate mock JWT token
-      const accessToken = generateMockToken(mockUser.id);
-
-      // Create session
-      const newSession: AuthSession = {
-        user: mockUser,
-        access_token: accessToken,
-        current_role: 'landlord', // Default role
-      };
-
-      // Save to state and localStorage
-      session.value = newSession;
-      currentRole.value = newSession.current_role;
-      persistSession(newSession);
+      // После логина получаем профиль пользователя
+      await fetchProfile();
 
       return true;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка входа';
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || 'Ошибка входа';
       return false;
     } finally {
-      isLoading.value = false;
+      loading.value = false;
     }
-  };
+  }
 
   /**
-   * Регистрация нового пользователя (mock, не реализовано)
-   * В реальном приложении создавал бы нового пользователя на backend
+   * Регистрация нового пользователя
    */
-  const register = async (username: string, _password: string): Promise<boolean> => {
-    isLoading.value = true;
+  async function register(userData: UserCreate) {
+    loading.value = true;
     error.value = null;
 
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const tokenResponse = await authService.register(userData);
+      saveAuth(tokenResponse.access_token);
 
-      // Mock: проверяем что пользователя ещё нет
-      const existing = validateCredentials(username);
-      if (existing) {
-        error.value = 'Пользователь с таким именем уже существует';
-        return false;
-      }
+      // После регистрации получаем профиль
+      await fetchProfile();
 
-      // Mock: просто логируем, регистрация не реальная
-      console.log('Mock register:', username);
-      error.value = 'Регистрация пока не реализована. Используйте landlord_user или tenant_user';
-      return false;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Ошибка регистрации';
+      return true;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || 'Ошибка регистрации';
       return false;
     } finally {
-      isLoading.value = false;
+      loading.value = false;
     }
-  };
+  }
 
   /**
-   * Переключение между ролями владельца и арендатора
+   * Получить профиль текущего пользователя
    */
-  const switchRole = (role: UserRole) => {
-    currentRole.value = role;
-    if (session.value) {
-      session.value.current_role = role;
-      persistSession(session.value);
+  async function fetchProfile() {
+    if (!token.value) return;
+
+    try {
+      const userData = await authService.getProfile();
+      user.value = userData;
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } catch (err: any) {
+      console.error('Ошибка загрузки профиля:', err);
+      // Если не удалось загрузить профиль — токен невалиден
+      if (err.response?.status === 401) {
+        clearAuth();
+      }
     }
-  };
+  }
+
+  /**
+   * Проверка валидности токена при загрузке приложения
+   */
+  async function checkAuth() {
+    if (!token.value) return false;
+
+    try {
+      await fetchProfile();
+      return isAuthenticated.value;
+    } catch {
+      return false;
+    }
+  }
 
   /**
    * Выход из системы
    */
-  const logout = () => {
-    session.value = null;
-    currentRole.value = 'landlord';
+  function logout() {
+    clearAuth();
+  }
+
+  /**
+   * Сброс ошибки
+   */
+  function clearError() {
     error.value = null;
-    clearPersistedSession();
-  };
-
-  /**
-   * Установка сеанса (используется при восстановлении сеанса из хранилища)
-   * Внутренний метод для hydration
-   */
-  const setSession = (newSession: AuthSession) => {
-    session.value = newSession;
-    currentRole.value = newSession.current_role;
-    persistSession(newSession);
-  };
-
-  /**
-   * Инициализация хранилища (восстановление сеанса при загрузке приложения)
-   * Должен быть вызван в main.ts после создания Pinia
-   */
-  const initializeAuth = () => {
-    restoreSession();
-  };
+  }
 
   return {
-    // State
-    session,
-    currentRole,
-    isLoading,
+    // Состояние
+    token,
+    user,
+    loading,
     error,
 
-    // Computed
+    // Геттеры
     isAuthenticated,
-    user,
-    accessToken,
+    currentUser,
 
-    // Actions
+    // Действия
     login,
     register,
-    switchRole,
     logout,
-    setSession,
-    initializeAuth,
+    checkAuth,
+    fetchProfile,
+    clearError,
   };
 });

@@ -7,18 +7,11 @@
 
         <!-- Переключатель режимов работы (Владелец / Арендатор) -->
         <div class="role-selector">
-          <button
-            class="role-btn"
-            :class="{ active: currentRole === 'landlord' }"
-            @click="switchRole('landlord')"
-          >
+          <button class="role-btn" :class="{ active: roleStore.getRole === 'landlord' }"
+            @click="switchRole('landlord')">
             Владелец
           </button>
-          <button
-            class="role-btn"
-            :class="{ active: currentRole === 'tenant' }"
-            @click="switchRole('tenant')"
-          >
+          <button class="role-btn" :class="{ active: roleStore.getRole === 'tenant' }" @click="switchRole('tenant')">
             Арендатор
           </button>
         </div>
@@ -38,45 +31,53 @@
 </template>
 
 <script setup lang="ts">
-/**
- * AppLayout компонент
- *
- * Основной макет приложения с:
- * - Заголовком с логотипом
- * - Переключателем между ролями владельца и арендатора
- * - Кнопкой выхода
- * - Областью для содержимого страниц
- *
- * Это desktop-first приложение согласно требованиям PDF
- */
 
-import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { UserRole } from '../../shared/types';
+import type { UserRole } from '../types';
+import { onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 const router = useRouter();
-const currentRole = ref<UserRole>('landlord');
+const route = useRoute();
+import { useRoleStore } from '../stores/role';
+import { useAuthStore } from '../stores/auth';
+const roleStore = useRoleStore();
+const authStore = useAuthStore();
 
+
+const syncRoleFromUrl = () => {
+  if (route.path.includes('/tenant')) {
+    roleStore.setRole('tenant');
+  } else if (route.path.includes('/landlord')) {
+    roleStore.setRole('landlord');
+  }
+};
+
+// Запускаем при монтировании компонента
+onMounted(syncRoleFromUrl);
+
+// И при каждом изменении маршрута
+watch(() => route.path, syncRoleFromUrl);
 /**
  * Переключение между ролями владельца и арендатора
  * При смене роли перенаправляет на первую страницу соответствующего раздела
  */
 const switchRole = (role: UserRole) => {
-  currentRole.value = role;
+  roleStore.setRole(role);
 
   if (role === 'landlord') {
     router.push({ name: 'LandlordProperties' });
   } else {
-    router.push({ name: 'TenantContracts' });
+    router.push({ name: 'TenantDashboard' });
   }
 };
 
-/**
+/*
  * Выход из системы
- * Очищает сеанс и перенаправляет на страницу логина
  */
 const logout = () => {
   // TODO: Интеграция с хранилищем и очистка токена
+  authStore.logout();
   router.push({ name: 'AuthLogin' });
 };
 </script>

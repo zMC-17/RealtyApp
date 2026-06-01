@@ -1,23 +1,11 @@
 /**
  * Vue Router конфигурация
- * Маршруты приложения согласно архитектуре из PDF документации
- *
- * Структура маршрутов:
- * - /auth - аутентификация (логин/регистрация)
- * - /app - основное приложение с AppLayout (требует аутентификацию)
- *   - /app/landlord/* - функционал владельца (недвижимость, договоры, платежи, заявки, статистика)
- *   - /app/tenant/* - функционал арендатора (панель управления, договоры, платежи, заявки)
- *
- * Auth Flow:
- * 1. Неавторизованный пользователь → /auth/login
- * 2. После входа → восстановление сеанса из localStorage
- * 3. Попытка доступа к /app → проверка isAuthenticated
- * 4. Выход → очистка localStorage, редирект на /auth/login
+ * Маршруты приложения
  */
 
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
-import { useAuthStore } from '../../stores/auth';
+import { useAuthStore } from '../stores/auth.ts';
 
 // Layouts
 import AppLayout from '../layouts/AppLayout.vue';
@@ -26,20 +14,19 @@ import TenantLayout from '../layouts/TenantLayout.vue';
 import AuthLayout from '../layouts/AuthLayout.vue';
 
 // Pages - Auth
-import LoginPage from '../../pages/auth/login.vue';
+import LoginPage from '../pages/auth/login.vue';
+import RegisterPage from '../pages/auth/register.vue'
 
 // Pages - Landlord
-import LandlordPropertiesPage from '../../pages/landlord/properties.vue';
-import LandlordContractsPage from '../../pages/landlord/contracts.vue';
-import LandlordPaymentsPage from '../../pages/landlord/payments.vue';
-import LandlordRequestsPage from '../../pages/landlord/requests.vue';
-import LandlordStatisticsPage from '../../pages/landlord/statistics.vue';
+import LandlordPropertiesPage from '../pages/landlord/properties.vue';
+import LandlordPaymentsPage from '../pages/landlord/payments.vue';
+import LandlordRequestsPage from '../pages/landlord/requests.vue';
+import LandlordStatisticsPage from '../pages/landlord/statistics.vue';
 
 // Pages - Tenant
-import TenantDashboardPage from '../../pages/tenant/dashboard.vue';
-import TenantContractPage from '../../pages/tenant/contract.vue';
-import TenantPaymentsPage from '../../pages/tenant/payments.vue';
-import TenantRequestsPage from '../../pages/tenant/requests.vue';
+import TenantDashboardPage from '../pages/tenant/dashboard.vue';
+import TenantPaymentsPage from '../pages/tenant/payments.vue';
+import TenantRequestsPage from '../pages/tenant/requests.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -49,6 +36,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/auth',
     component: AuthLayout,
+    meta: { requiresGuest: true },
     children: [
       {
         path: 'login',
@@ -56,6 +44,12 @@ const routes: RouteRecordRaw[] = [
         component: LoginPage,
         meta: { requiresAuth: false, title: 'Вход в систему' },
       },
+      {
+        path: 'register',
+        name: 'AuthRegister',
+        component: RegisterPage,
+        meta: { requiresAuth: false, title: 'Регистрация'}
+      }
     ],
   },
   {
@@ -73,12 +67,6 @@ const routes: RouteRecordRaw[] = [
             name: 'LandlordProperties',
             component: LandlordPropertiesPage,
             meta: { title: 'Мои объекты' },
-          },
-          {
-            path: 'contracts',
-            name: 'LandlordContracts',
-            component: LandlordContractsPage,
-            meta: { title: 'Договоры аренды' },
           },
           {
             path: 'payments',
@@ -111,12 +99,6 @@ const routes: RouteRecordRaw[] = [
             name: 'TenantDashboard',
             component: TenantDashboardPage,
             meta: { title: 'Панель управления' },
-          },
-          {
-            path: 'contracts',
-            name: 'TenantContracts',
-            component: TenantContractPage,
-            meta: { title: 'Мои договоры' },
           },
           {
             path: 'payments',
@@ -153,26 +135,30 @@ const router = createRouter({
 
 /**
  * Router Guard: Проверка аутентификации перед навигацией
- *
- * Логика:
- * 1. Если маршрут требует аутентификацию (meta.requiresAuth = true)
- *    и пользователь не авторизован → редирект на /auth/login
- * 2. Если пользователь авторизован и пытается перейти на /auth/*
- *    → редирект на /app/landlord/properties
- * 3. Иначе → разрешить навигацию
  */
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
+
+  // 1. Восстанавливаем сессию при перезагрузке
+  if (!authStore.isAuthenticated && localStorage.getItem('access_token')) {
+    await authStore.checkAuth();
+  }
+
+  // 2. Проверяем вложенные маршруты
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth === true);
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest === true);
 
+  // 3. Защищённый маршрут, но не авторизован
   if (requiresAuth && !authStore.isAuthenticated) {
-    return '/auth/login';
+    return { name: 'AuthLogin', query: { redirect: to.fullPath } };
   }
 
-  if (authStore.isAuthenticated && to.path.startsWith('/auth')) {
-    return '/app/landlord/properties';
+  // 4. Гостевой маршрут, но уже авторизован
+  if (requiresGuest && authStore.isAuthenticated) {
+    return { name: 'LandlordProperties' };
   }
 
+  // 5. Публичный маршрут
   return true;
 });
 

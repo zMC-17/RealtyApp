@@ -1,388 +1,219 @@
+<!-- pages/landlord/properties.vue -->
 <template>
-  <div class="page-container">
+  <div class="properties-page">
+    <!-- Заголовок и кнопка создания -->
     <div class="page-header">
-      <div>
+      <div class="header-info">
         <h1>Мои объекты</h1>
-        <p>Управление недвижимостью владельца</p>
+        <span v-if="propertiesStore.propertiesCount > 0" class="count-badge">
+          {{ propertiesStore.propertiesCount }}
+          {{ getObjectsWord(propertiesStore.propertiesCount) }}
+        </span>
       </div>
 
-      <Button
-        label="Добавить объект"
-        severity="contrast"
-        size="small"
-        @click="handleAddProperty"
-      />
-    </div>
-
-    <div v-if="isLoading" class="state state-loading">
-      Загрузка объектов...
-    </div>
-
-    <div v-else-if="errorMessage" class="state state-error">
-      {{ errorMessage }}
-    </div>
-
-    <div v-else-if="properties.length === 0" class="state state-empty">
-      <h2>Пока нет объектов</h2>
-      <p>Добавьте первый объект недвижимости, чтобы начать работу.</p>
-      <Button
-        label="Добавить объект"
-        size="small"
-        @click="handleAddProperty"
-      />
-    </div>
-
-    <div v-else class="cards-grid">
-      <Card
-        v-for="property in properties"
-        :key="property.id"
-        class="property-card"
+      <button
+        v-if="propertiesStore.hasProperties"
+        class="add-property-btn"
+        @click="showCreateModal = true"
       >
-        <template #title>
-          <div class="card-title-row">
-            <h3 class="card-title">{{ property.title }}</h3>
-            <Tag
-              :value="getPropertyStatus(property.id).label"
-              :severity="getPropertyStatus(property.id).severity"
-            />
-          </div>
-        </template>
-
-        <template #subtitle>
-          <p class="card-address">{{ property.address }}</p>
-        </template>
-
-        <template #content>
-          <p class="card-description">
-            {{ truncateDescription(property.description) }}
-          </p>
-        </template>
-
-        <template #footer>
-          <div class="card-actions">
-            <Button
-              label="Изменить"
-              outlined
-              size="small"
-              @click="handleEditProperty(property.id)"
-            />
-            <Button
-              label="Удалить"
-              severity="danger"
-              text
-              size="small"
-              @click="handleDeleteProperty(property.id)"
-            />
-          </div>
-        </template>
-      </Card>
+        + Добавить объект
+      </button>
     </div>
 
-    <PropertyDialog
-      v-model:visible="isDialogVisible"
-      :mode="dialogMode"
-      :loading="isDialogLoading"
-      :initialValue="dialogInitialValue"
-      @submit="handleDialogSubmit"
+    <!-- Индикатор загрузки -->
+    <div v-if="propertiesStore.loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Загрузка объектов...</p>
+    </div>
+
+    <!-- Сообщение об ошибке -->
+    <div v-else-if="propertiesStore.error" class="error-state">
+      <p>{{ propertiesStore.error }}</p>
+      <button @click="loadProperties">Попробовать снова</button>
+    </div>
+
+    <!-- Пустое состояние -->
+    <EmptyState
+      v-else-if="!propertiesStore.hasProperties"
+      @create="showCreateModal = true"
+    />
+
+    <!-- Сетка карточек -->
+    <div v-else class="properties-grid">
+      <PropertyCard
+        v-for="property in propertiesStore.properties"
+        :key="property.id"
+        :property="property"
+        @click="openPropertyDetails"
+      />
+    </div>
+
+    <!-- Модальное окно создания -->
+    <CreatePropertyModal
+      :visible="showCreateModal"
+      @close="showCreateModal = false"
+      @created="onPropertyCreated"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import Button from 'primevue/button';
-import Card from 'primevue/card';
-import Tag from 'primevue/tag';
-import type { Property } from '../../shared/types';
-import {
-  createProperty,
-  deleteProperty,
-  getPropertiesByOwner,
-  updateProperty,
-} from '../../services/mock/properties';
-import { useAuthStore } from '../../stores/auth';
-import PropertyDialog from '../../components/property/PropertyDialog.vue';
+import { ref, onMounted } from 'vue';
+import { usePropertiesStore } from '../../stores/properties';
+import PropertyCard from '../../components/properties/PropertyCard.vue';
+import EmptyState from '../../components/properties/EmptyState.vue';
+import CreatePropertyModal from '../../components/properties/CreatePropertyModal.vue';
 
-type TagSeverity = 'secondary' | 'info' | 'success' | 'warn' | 'danger' | 'contrast';
+const propertiesStore = usePropertiesStore();
+const showCreateModal = ref(false);
 
-const authStore = useAuthStore();
-
-const properties = ref<Property[]>([]);
-const isLoading = ref(false);
-const errorMessage = ref('');
-const isDialogVisible = ref(false);
-const isDialogLoading = ref(false);
-const dialogMode = ref<'create' | 'edit'>('create');
-const editingPropertyId = ref<string | null>(null);
-const dialogInitialValue = ref<Pick<Property, 'title' | 'address' | 'description' | 'property_type'>>({
-  title: '',
-  address: '',
-  description: '',
-  property_type: 'apartment',
+/**
+ * Загрузить список объектов при монтировании
+ */
+onMounted(() => {
+  loadProperties();
 });
 
-const getOwnerId = (): string => authStore.user?.id ?? 'user_1';
-
+/**
+ * Загрузка объектов
+ */
 const loadProperties = async () => {
-  isLoading.value = true;
-  errorMessage.value = '';
-
-  try {
-    properties.value = await getPropertiesByOwner(getOwnerId());
-  } catch {
-    errorMessage.value = 'Не удалось загрузить объекты. Попробуйте снова.';
-  } finally {
-    isLoading.value = false;
-  }
+  await propertiesStore.fetchProperties();
 };
 
-const truncateDescription = (description: string): string => {
-  if (description.length <= 90) return description;
-  return `${description.slice(0, 90)}...`;
+/**
+ * Открыть детали объекта (пока редирект, потом будет страница)
+ */
+const openPropertyDetails = (propertyId: number) => {
+  // В будущем: router.push({ name: 'PropertyDetails', params: { id: propertyId } })
+  console.log('Открыть объект:', propertyId);
 };
 
-const getPropertyStatus = (propertyId: string): { label: string; severity: TagSeverity } => {
-  const statuses: Array<{ label: string; severity: TagSeverity }> = [
-    { label: 'Активен', severity: 'success' },
-    { label: 'Черновик', severity: 'secondary' },
-    { label: 'На проверке', severity: 'warn' },
-  ];
-
-  const hash = propertyId
-    .split('')
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-  return statuses[hash % statuses.length];
+/**
+ * Обработчик успешного создания объекта
+ */
+const onPropertyCreated = () => {
+  console.log('Объект успешно создан');
 };
 
-const handleAddProperty = () => {
-  dialogMode.value = 'create';
-  editingPropertyId.value = null;
-  dialogInitialValue.value = {
-    title: '',
-    address: '',
-    description: '',
-    property_type: 'apartment',
-  };
-  isDialogVisible.value = true;
+/**
+ * Склонение слова "объект" (русский язык)
+ */
+const getObjectsWord = (count: number): string => {
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'объектов';
+  if (lastDigit === 1) return 'объект';
+  if (lastDigit >= 2 && lastDigit <= 4) return 'объекта';
+  return 'объектов';
 };
-
-const handleEditProperty = (propertyId: string) => {
-  const property = properties.value.find(item => item.id === propertyId);
-  if (!property) {
-    errorMessage.value = 'Объект не найден для редактирования.';
-    return;
-  }
-
-  dialogMode.value = 'edit';
-  editingPropertyId.value = propertyId;
-  dialogInitialValue.value = {
-    title: property.title,
-    address: property.address,
-    description: property.description,
-    property_type: property.property_type,
-  };
-  isDialogVisible.value = true;
-};
-
-const handleDialogSubmit = async (
-  value: Pick<Property, 'title' | 'address' | 'description' | 'property_type'>
-) => {
-  isDialogLoading.value = true;
-  errorMessage.value = '';
-
-  try {
-    if (dialogMode.value === 'create') {
-      const created = await createProperty(getOwnerId(), value);
-      properties.value = [created, ...properties.value];
-    } else {
-      if (!editingPropertyId.value) {
-        errorMessage.value = 'Не удалось определить объект для обновления.';
-        return;
-      }
-
-      const updated = await updateProperty(editingPropertyId.value, value);
-      if (!updated) {
-        errorMessage.value = 'Объект не найден или уже удалён.';
-        return;
-      }
-
-      properties.value = properties.value.map(item =>
-        item.id === updated.id ? updated : item
-      );
-    }
-
-    isDialogVisible.value = false;
-  } catch {
-    errorMessage.value = 'Не удалось сохранить изменения. Попробуйте снова.';
-  } finally {
-    isDialogLoading.value = false;
-  }
-};
-
-const handleDeleteProperty = async (propertyId: string) => {
-  const confirmed = window.confirm('Удалить объект? Это действие нельзя отменить.');
-  if (!confirmed) return;
-
-  isLoading.value = true;
-  errorMessage.value = '';
-
-  try {
-    const deleted = await deleteProperty(propertyId);
-    if (!deleted) {
-      errorMessage.value = 'Объект не найден или уже удалён.';
-      return;
-    }
-
-    properties.value = properties.value.filter(item => item.id !== propertyId);
-  } catch {
-    errorMessage.value = 'Ошибка удаления объекта. Попробуйте снова.';
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-onMounted(loadProperties);
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
+.properties-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
   width: 100%;
-  height: 100%;
-  padding: 1.5rem 2rem 2rem;
-  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(168, 85, 247, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.16), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+.header-info h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: #2d3748;
+}
+
+.count-badge {
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.add-property-btn {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.add-property-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
   margin-bottom: 1rem;
 }
 
-h1 {
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #a0aec0;
   margin: 0;
-  font-size: 1.625rem;
-  font-weight: 700;
-  color: #1f2937;
-  line-height: 1.2;
 }
 
-p {
-  color: #6b7280;
-  margin: 0.35rem 0 0;
-  font-size: 0.95rem;
+.error-state p {
+  color: #c53030;
+  margin: 0 0 1rem 0;
 }
 
-.state {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  border: 1px dashed #d1d5db;
-  border-radius: 0.75rem;
-  min-height: 220px;
-  padding: 1.25rem;
-  color: #4b5563;
+.error-state button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-.state-empty h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  color: #111827;
-}
-
-.state-empty p {
-  margin: 0.45rem 0 0.9rem;
-}
-
-.state-error {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.cards-grid {
+.properties-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.property-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-}
-
-.card-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.6rem;
-}
-
-.card-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #111827;
-}
-
-.card-address {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #6b7280;
-}
-
-.card-description {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: #374151;
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-:deep(.property-card .p-card-body) {
-  padding: 0.85rem 0.9rem 0.8rem;
-  gap: 0.65rem;
-}
-
-:deep(.property-card .p-card-content) {
-  padding: 0;
-}
-
-:deep(.property-card .p-card-footer) {
-  padding-top: 0.2rem;
-}
-
-@media (max-width: 1280px) {
-  .cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  .page-container {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cards-grid {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
 }
 </style>
