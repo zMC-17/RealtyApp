@@ -1,6 +1,6 @@
 """API схемы (Pydantic модели) для валидации."""
 
-from app.schemas.contract import ContractCreate, ContractResponse, ContractUpdate
+from app.schemas.contract import ContractCreate, ContractCreateByEmail, ContractResponse, ContractUpdate
 from app.schemas.payment import PaymentConfirmationRequest, PaymentCreate, PaymentResponse, PaymentUpdate
 from app.schemas.property import PropertyCreate, PropertyResponse, PropertyUpdate
 from app.schemas.request import RequestCreate, RequestResponse, RequestUpdate
@@ -8,6 +8,7 @@ from app.schemas.user import Token, TokenData, UserCreate, UserLogin, UserRespon
 
 __all__ = [
 	"ContractCreate",
+	"ContractCreateByEmail",
 	"ContractResponse",
 	"ContractUpdate",
 	"PaymentCreate",

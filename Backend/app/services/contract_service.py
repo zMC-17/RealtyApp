@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.contract import Contract
 from app.models.property import Property
 from app.models.user import User
-from app.schemas.contract import ContractCreate, ContractUpdate
+from app.schemas.contract import ContractCreate, ContractCreateByEmail, ContractUpdate
 from app.services.payment_service import PaymentService
 
 
@@ -68,6 +68,42 @@ class ContractService:
 
         # Автоматически генерируем платежи на все месяцы договора
         await PaymentService.generate_payments_for_contract(contract_obj, db)
+        await db.commit()
+        await db.refresh(contract_obj)
+
+        return contract_obj
+
+    @staticmethod
+    async def create_contract_by_email(payload: ContractCreateByEmail, owner_user: User, db: AsyncSession) -> Contract:
+        """Создать договор по email арендатора."""
+        prop_stmt = select(Property).where(Property.id == payload.property_id)
+        prop_res = await db.execute(prop_stmt)
+        prop = prop_res.scalars().first()
+
+        if prop is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
+
+        if prop.owner_id != owner_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создавать договор может только владелец объекта")
+
+        tenant_stmt = select(User).where(User.email == payload.tenant_email)
+        tenant_res = await db.execute(tenant_stmt)
+        tenant = tenant_res.scalars().first()
+
+        if tenant is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Арендатор не найден")
+
+        contract_obj = Contract(
+            property_id=payload.property_id,
+            tenant_id=tenant.id,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            monthly_payment=payload.monthly_payment,
+            security_deposit=payload.security_deposit,
+            status="pending_tenant_confirmation",
+        )
+
+        db.add(contract_obj)
         await db.commit()
         await db.refresh(contract_obj)
 
@@ -132,6 +168,29 @@ class ContractService:
         stmt = select(Contract).where(Contract.tenant_id == tenant_id).order_by(Contract.created_at.desc())
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def confirm_contract(contract_id: int, tenant_id: int, db: AsyncSession) -> Contract:
+        """Подтвердить договор арендатором и сгенерировать платежи."""
+        stmt = select(Contract).where(
+            Contract.id == contract_id,
+            Contract.tenant_id == tenant_id,
+            Contract.status == "pending_tenant_confirmation",
+        )
+        res = await db.execute(stmt)
+        contract = res.scalars().first()
+
+        if contract is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Договор не найден или не требует подтверждения")
+
+        contract.status = "active"
+        await db.flush()
+
+        await PaymentService.generate_payments_for_contract(contract, db)
+        await db.commit()
+        await db.refresh(contract)
+
+        return contract
 
     @staticmethod
     async def update(contract_id: int, owner_id: int, payload: ContractUpdate, db: AsyncSession) -> Contract:

@@ -23,6 +23,23 @@ class ContractCreate(BaseModel):
 		return self
 
 
+class ContractCreateByEmail(BaseModel):
+	"""Схема создания договора аренды по email арендатора."""
+	property_id: int = Field(..., gt=0)
+	tenant_email: str = Field(..., min_length=5, max_length=255)
+	start_date: date
+	end_date: date
+	monthly_payment: Decimal = Field(..., gt=0, max_digits=12, decimal_places=2)
+	security_deposit: Decimal = Field(default=Decimal("0"), ge=0, max_digits=12, decimal_places=2)
+	status: str = Field(default="pending_tenant_confirmation", min_length=2, max_length=50)
+
+	@model_validator(mode="after")
+	def validate_dates(self) -> "ContractCreateByEmail":
+		if self.end_date <= self.start_date:
+			raise ValueError("Дата окончания должна быть позже даты начала")
+		return self
+
+
 class ContractUpdate(BaseModel):
 	"""Схема частичного обновления договора аренды."""
 	start_date: Optional[date] = None

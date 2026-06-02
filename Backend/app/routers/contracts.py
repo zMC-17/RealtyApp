@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.contract import ContractCreate, ContractResponse, ContractUpdate
+from app.schemas.contract import ContractCreate, ContractCreateByEmail, ContractResponse, ContractUpdate
 from app.services.contract_service import ContractService
 
 
@@ -53,6 +53,17 @@ async def create_contract(
     return ContractResponse.model_validate(contract_obj)
 
 
+@router.post("/by-email", response_model=ContractResponse, status_code=status.HTTP_201_CREATED)
+async def create_contract_by_email(
+    payload: ContractCreateByEmail,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ContractResponse:
+    """Создать договор аренды по email арендатора."""
+    contract_obj = await ContractService.create_contract_by_email(payload, current_user, db)
+    return ContractResponse.model_validate(contract_obj)
+
+
 @router.get("/{contract_id}", response_model=ContractResponse)
 async def get_contract(
     contract_id: int,
@@ -61,6 +72,17 @@ async def get_contract(
 ) -> ContractResponse:
     """Получить один договор, если он доступен пользователю."""
     contract_obj, _ = await ContractService.get_with_access(contract_id, current_user.id, db)
+    return ContractResponse.model_validate(contract_obj)
+
+
+@router.post("/{contract_id}/confirm", response_model=ContractResponse)
+async def confirm_contract(
+    contract_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ContractResponse:
+    """Арендатор подтверждает договор. После этого генерируются платежи."""
+    contract_obj = await ContractService.confirm_contract(contract_id, current_user.id, db)
     return ContractResponse.model_validate(contract_obj)
 
 

@@ -82,6 +82,9 @@ class AuthService:
         if not user:
             raise ValueError("Пользователь не найден")
 
+        if not user.password_hash:
+            raise ValueError("Пользователь не может войти без пароля")
+
         # Проверяем пароль
         if not verify_password(password, user.password_hash):
             raise ValueError("Неверный пароль")
