@@ -4,6 +4,7 @@ from typing import List
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contract import Contract
@@ -80,9 +81,17 @@ class PaymentService:
 		if not contract_ids:
 			return []
 
-		stmt = select(Payment).where(Payment.contract_id.in_(contract_ids)).order_by(Payment.due_date.desc())
+		stmt = (
+			select(Payment)
+			.where(Payment.contract_id.in_(contract_ids))
+			.options(
+				selectinload(Payment.contract).selectinload(Contract.property),
+				selectinload(Payment.contract).selectinload(Contract.tenant)
+			)
+			.order_by(Payment.due_date.desc())
+		)
 		result = await db.execute(stmt)
-		return list(result.scalars().all())
+		return list(result.scalars().unique().all())
 
 	@staticmethod
 	async def _load_payment_context(payment_id: int, db: AsyncSession) -> tuple[Payment, Contract, int]:

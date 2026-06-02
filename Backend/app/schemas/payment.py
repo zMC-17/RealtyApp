@@ -54,3 +54,38 @@ class PaymentResponse(BaseModel):
 	confirmation_requested_at: Optional[datetime]
 
 	model_config = ConfigDict(from_attributes=True)
+
+
+class ContractInfo(BaseModel):
+	"""Информация о договоре аренды."""
+	id: int
+	start_date: date
+	end_date: date
+	monthly_payment: Decimal
+
+	model_config = ConfigDict(from_attributes=True)
+
+
+class PropertyInfo(BaseModel):
+	"""Информация об объекте недвижимости."""
+	id: int
+	title: str
+	address: str
+
+	model_config = ConfigDict(from_attributes=True)
+
+
+class TenantInfo(BaseModel):
+	"""Информация об арендаторе."""
+	id: int
+	name: str
+	email: str
+
+	model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentWithDetailsResponse(PaymentResponse):
+	"""Расширенный ответ по платежу с информацией о договоре, объекте и арендаторе."""
+	contract_info: Optional[ContractInfo] = None
+	property_info: Optional[PropertyInfo] = None
+	tenant_info: Optional[TenantInfo] = None

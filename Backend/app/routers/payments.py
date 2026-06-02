@@ -6,52 +6,137 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.payment import PaymentConfirmationRequest, PaymentCreate, PaymentResponse, PaymentUpdate
+from app.schemas.payment import (
+	ContractInfo,
+	PaymentConfirmationRequest,
+	PaymentCreate,
+	PaymentResponse,
+	PaymentUpdate,
+	PaymentWithDetailsResponse,
+	PropertyInfo,
+	TenantInfo,
+)
 from app.services.payment_service import PaymentService
 
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
-@router.get("/me", response_model=list[PaymentResponse])
+@router.get("/me", response_model=list[PaymentWithDetailsResponse])
 async def list_my_payments(
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[PaymentResponse]:
+) -> list[PaymentWithDetailsResponse]:
 	"""Все платежи, связанные с текущим пользователем."""
 	payments = await PaymentService.list_related_payments(current_user.id, db)
-	return [PaymentResponse.model_validate(item) for item in payments]
+
+	result = []
+	for payment in payments:
+		payment_dict = PaymentResponse.model_validate(payment).model_dump()
+
+		# Добавляем информацию о договоре
+		contract = payment.contract
+		payment_dict["contract_info"] = ContractInfo.model_validate(contract).model_dump()
+
+		# Добавляем информацию об объекте
+		property_obj = contract.property
+		payment_dict["property_info"] = PropertyInfo.model_validate(property_obj).model_dump()
+
+		# Добавляем информацию об арендаторе
+		tenant = contract.tenant
+		payment_dict["tenant_info"] = TenantInfo.model_validate(tenant).model_dump()
+
+		result.append(PaymentWithDetailsResponse(**payment_dict))
+
+	return result
 
 
-@router.get("/owner/me", response_model=list[PaymentResponse])
+@router.get("/owner/me", response_model=list[PaymentWithDetailsResponse])
 async def list_my_owner_payments(
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[PaymentResponse]:
-	"""Платежи по объектам текущего владельца."""
+) -> list[PaymentWithDetailsResponse]:
+	"""Платежи по объектам текущего владельца с расширенной информацией."""
 	payments = await PaymentService.list_owner_payments(current_user.id, db)
-	return [PaymentResponse.model_validate(item) for item in payments]
+
+	result = []
+	for payment in payments:
+		payment_dict = PaymentResponse.model_validate(payment).model_dump()
+
+		# Добавляем информацию о договоре
+		contract = payment.contract
+		payment_dict["contract_info"] = ContractInfo.model_validate(contract).model_dump()
+
+		# Добавляем информацию об объекте
+		property_obj = contract.property
+		payment_dict["property_info"] = PropertyInfo.model_validate(property_obj).model_dump()
+
+		# Добавляем информацию об арендаторе
+		tenant = contract.tenant
+		payment_dict["tenant_info"] = TenantInfo.model_validate(tenant).model_dump()
+
+		result.append(PaymentWithDetailsResponse(**payment_dict))
+
+	return result
 
 
-@router.get("/tenant/me", response_model=list[PaymentResponse])
+@router.get("/tenant/me", response_model=list[PaymentWithDetailsResponse])
 async def list_my_tenant_payments(
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[PaymentResponse]:
-	"""Платежи текущего арендатора."""
+) -> list[PaymentWithDetailsResponse]:
+	"""Платежи текущего арендатора с расширенной информацией."""
 	payments = await PaymentService.list_tenant_payments(current_user.id, db)
-	return [PaymentResponse.model_validate(item) for item in payments]
+
+	result = []
+	for payment in payments:
+		payment_dict = PaymentResponse.model_validate(payment).model_dump()
+
+		# Добавляем информацию о договоре
+		contract = payment.contract
+		payment_dict["contract_info"] = ContractInfo.model_validate(contract).model_dump()
+
+		# Добавляем информацию об объекте
+		property_obj = contract.property
+		payment_dict["property_info"] = PropertyInfo.model_validate(property_obj).model_dump()
+
+		# Добавляем информацию об арендаторе
+		tenant = contract.tenant
+		payment_dict["tenant_info"] = TenantInfo.model_validate(tenant).model_dump()
+
+		result.append(PaymentWithDetailsResponse(**payment_dict))
+
+	return result
 
 
-@router.get("/contracts/{contract_id}", response_model=list[PaymentResponse])
+@router.get("/contracts/{contract_id}", response_model=list[PaymentWithDetailsResponse])
 async def list_contract_payments(
 	contract_id: int,
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_db)],
-) -> list[PaymentResponse]:
-	"""Платежи по одному договору."""
+) -> list[PaymentWithDetailsResponse]:
+	"""Платежи по одному договору с расширенной информацией."""
 	payments = await PaymentService.list_contract_payments(contract_id, current_user.id, db)
-	return [PaymentResponse.model_validate(item) for item in payments]
+
+	result = []
+	for payment in payments:
+		payment_dict = PaymentResponse.model_validate(payment).model_dump()
+
+		# Добавляем информацию о договоре
+		contract = payment.contract
+		payment_dict["contract_info"] = ContractInfo.model_validate(contract).model_dump()
+
+		# Добавляем информацию об объекте
+		property_obj = contract.property
+		payment_dict["property_info"] = PropertyInfo.model_validate(property_obj).model_dump()
+
+		# Добавляем информацию об арендаторе
+		tenant = contract.tenant
+		payment_dict["tenant_info"] = TenantInfo.model_validate(tenant).model_dump()
+
+		result.append(PaymentWithDetailsResponse(**payment_dict))
+
+	return result
 
 
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
