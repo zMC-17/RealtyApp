@@ -26,14 +26,14 @@
         <span class="nav-icon">📬</span>
         <span class="nav-label">Заявки</span>
       </router-link>
-      <router-link
+      <!-- <router-link
         to="/app/landlord/statistics"
         class="nav-tab"
         :class="{ active: isActive('LandlordStatistics') }"
       >
         <span class="nav-icon">📊</span>
         <span class="nav-label">Статистика</span>
-      </router-link>
+      </router-link> -->
     </nav>
 
     <!-- Основная область содержимого -->

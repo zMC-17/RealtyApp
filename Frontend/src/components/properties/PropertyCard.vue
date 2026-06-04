@@ -1,6 +1,6 @@
 <!-- components/properties/PropertyCard.vue -->
 <template>
-    <div class="property-card" @click="$emit('click', property.id)">
+    <div class="property-card" @click="goToDetail">
         <div class="property-card__header">
             <div class="property-type-badge">
                 {{ propertyTypeLabel }}
@@ -26,9 +26,12 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 import { computed } from 'vue';
 import type { PropertyResponse } from '../../types/property';
 import { PROPERTY_TYPES } from '../../types/property';
+
+const router = useRouter();
 
 const props = defineProps<{
     property: PropertyResponse;
@@ -49,6 +52,10 @@ const truncatedDescription = computed(() => {
         ? props.property.description.substring(0, 100) + '...'
         : props.property.description;
 });
+
+const goToDetail = () => {
+    router.push({ name: 'PropertyDetail', params: { id: props.property.id } });
+};
 </script>
 
 <style scoped>

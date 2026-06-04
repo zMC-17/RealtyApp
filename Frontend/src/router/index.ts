@@ -48,7 +48,7 @@ const routes: RouteRecordRaw[] = [
         path: 'register',
         name: 'AuthRegister',
         component: RegisterPage,
-        meta: { requiresAuth: false, title: 'Регистрация'}
+        meta: { requiresAuth: false, title: 'Регистрация' }
       }
     ],
   },
@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: 'Мои объекты' },
           },
           {
+            path: 'properties/:id',
+            name: 'PropertyDetail',
+            component: () => import('../pages/landlord/property-detail.vue'),
+            meta: { title: 'Детали объекта' },
+          },
+          {
             path: 'payments',
             name: 'LandlordPayments',
             component: LandlordPaymentsPage,
@@ -80,12 +86,12 @@ const routes: RouteRecordRaw[] = [
             component: LandlordRequestsPage,
             meta: { title: 'Заявки от арендаторов' },
           },
-          {
-            path: 'statistics',
-            name: 'LandlordStatistics',
-            component: LandlordStatisticsPage,
-            meta: { title: 'Статистика' },
-          },
+          // {
+          //   path: 'statistics',
+          //   name: 'LandlordStatistics',
+          //   component: LandlordStatisticsPage,
+          //   meta: { title: 'Статистика' },
+          // },
         ],
       },
 
