@@ -40,6 +40,20 @@ class ContractCreateByEmail(BaseModel):
 		return self
 
 
+class PropertyInfo(BaseModel):
+	"""Информация об объекте недвижимости."""
+	id: int
+	title: str
+	address: str
+
+
+class OwnerInfo(BaseModel):
+	"""Информация о владельце."""
+	id: int
+	name: str
+	email: str
+
+
 class ContractUpdate(BaseModel):
 	"""Схема частичного обновления договора аренды."""
 	start_date: Optional[date] = None
@@ -67,3 +81,9 @@ class ContractResponse(BaseModel):
 	status: str
 
 	model_config = ConfigDict(from_attributes=True)
+
+
+class ContractWithDetailsResponse(ContractResponse):
+	"""Расширенный ответ по договору с информацией об объекте и владельце."""
+	property_info: PropertyInfo | None = None
+	owner_info: OwnerInfo | None = None

@@ -6,6 +6,7 @@ from typing import List
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.contract import Contract
 from app.models.property import Property
@@ -165,9 +166,14 @@ class ContractService:
     @staticmethod
     async def list_tenant_contracts(tenant_id: int, db: AsyncSession) -> List[Contract]:
         """Получить все договоры арендатора."""
-        stmt = select(Contract).where(Contract.tenant_id == tenant_id).order_by(Contract.created_at.desc())
+        stmt = (
+            select(Contract)
+            .where(Contract.tenant_id == tenant_id)
+            .options(selectinload(Contract.property).selectinload(Property.owner))
+            .order_by(Contract.created_at.desc())
+        )
         result = await db.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
 
     @staticmethod
     async def confirm_contract(contract_id: int, tenant_id: int, db: AsyncSession) -> Contract:
