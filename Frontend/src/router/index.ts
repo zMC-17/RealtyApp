@@ -21,7 +21,6 @@ import RegisterPage from '../pages/auth/register.vue'
 import LandlordPropertiesPage from '../pages/landlord/properties.vue';
 import LandlordPaymentsPage from '../pages/landlord/payments.vue';
 import LandlordRequestsPage from '../pages/landlord/requests.vue';
-import LandlordStatisticsPage from '../pages/landlord/statistics.vue';
 
 // Pages - Tenant
 import TenantDashboardPage from '../pages/tenant/dashboard.vue';
@@ -63,6 +62,12 @@ const routes: RouteRecordRaw[] = [
         component: LandlordLayout,
         children: [
           {
+            path: 'dashboard',
+            name: 'LandlordDashboard',
+            component: () => import('../pages/landlord/dashboard.vue'),
+            meta: { title: 'Дашборд' },
+          },
+          {
             path: 'properties',
             name: 'LandlordProperties',
             component: LandlordPropertiesPage,
@@ -86,12 +91,6 @@ const routes: RouteRecordRaw[] = [
             component: LandlordRequestsPage,
             meta: { title: 'Заявки от арендаторов' },
           },
-          // {
-          //   path: 'statistics',
-          //   name: 'LandlordStatistics',
-          //   component: LandlordStatisticsPage,
-          //   meta: { title: 'Статистика' },
-          // },
         ],
       },
 
@@ -124,7 +123,7 @@ const routes: RouteRecordRaw[] = [
       // Редирект при попадании в /app без подпути
       {
         path: '',
-        redirect: 'landlord/properties',
+        redirect: 'landlord/dashboard',
       },
     ],
   },
@@ -161,8 +160,9 @@ router.beforeEach(async (to) => {
 
   // 4. Гостевой маршрут, но уже авторизован
   if (requiresGuest && authStore.isAuthenticated) {
-    return { name: 'LandlordProperties' };
+    return { name: 'LandlordDashboard' };
   }
+
 
   // 5. Публичный маршрут
   return true;

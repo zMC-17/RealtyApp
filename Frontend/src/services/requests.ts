@@ -22,4 +22,8 @@ export const requestsService = {
         const { data } = await api.put<RequestWithDetails>(`/requests/${requestId}`, { status });
         return data;
     },
+    async getContractRequests(contractId: number): Promise<RequestWithDetails[]> {
+        const { data } = await api.get<RequestWithDetails[]>(`/requests/contracts/${contractId}`);
+        return data;
+    },
 };

@@ -2,27 +2,19 @@
   <div class="landlord-layout">
     <!-- Верхняя навигационная панель -->
     <nav class="nav-bar">
-      <router-link
-        to="/app/landlord/properties"
-        class="nav-tab"
-        :class="{ active: isActive('LandlordProperties') }"
-      >
+      <router-link to="/app/landlord/dashboard" class="nav-tab" :class="{ active: isActive('LandlordDashboard') }">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Дашборд</span>
+      </router-link>
+      <router-link to="/app/landlord/properties" class="nav-tab" :class="{ active: isActive('LandlordProperties') }">
         <span class="nav-icon">🏠</span>
         <span class="nav-label">Объекты</span>
       </router-link>
-      <router-link
-        to="/app/landlord/payments"
-        class="nav-tab"
-        :class="{ active: isActive('LandlordPayments') }"
-      >
+      <router-link to="/app/landlord/payments" class="nav-tab" :class="{ active: isActive('LandlordPayments') }">
         <span class="nav-icon">💰</span>
         <span class="nav-label">Платежи</span>
       </router-link>
-      <router-link
-        to="/app/landlord/requests"
-        class="nav-tab"
-        :class="{ active: isActive('LandlordRequests') }"
-      >
+      <router-link to="/app/landlord/requests" class="nav-tab" :class="{ active: isActive('LandlordRequests') }">
         <span class="nav-icon">📬</span>
         <span class="nav-label">Заявки</span>
       </router-link>
