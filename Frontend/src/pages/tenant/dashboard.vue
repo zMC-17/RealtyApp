@@ -1,328 +1,170 @@
-<script setup lang="ts">
-import FeaturePlaceholder from '../../components/common/FeaturePlaceholder.vue';
-</script>
-
+<!-- pages/tenant/dashboard.vue -->
 <template>
-  <FeaturePlaceholder
-    title="Панель арендатора"
-    description="Mock-dashboard удалён. Этот экран будет собирать состояние договора, платежей и заявок только после подключения реального backend API."
-    :bullets="[
-      'Понадобятся данные по активному договору арендатора.',
-      'Платежи и заявки нужно будет загружать без mock-фильтров.',
-      'Это должна быть сводная панель, а не набор локально подделанных данных.'
-    ]"
-  />
+  <div class="tenant-dashboard">
+    <!-- Индикатор загрузки -->
+    <div v-if="tenantStore.loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Загрузка данных...</p>
+    </div>
+
+    <!-- Ошибка -->
+    <div v-else-if="tenantStore.error" class="error-state">
+      <p>{{ tenantStore.error }}</p>
+      <button @click="loadData">Попробовать снова</button>
+    </div>
+
+    <template v-else>
+      <!-- Ожидающие подтверждения договоры -->
+      <section v-if="tenantStore.hasPendingContracts" class="section section--pending">
+        <h2 class="section-title">
+          <span class="section-icon">📨</span>
+          Приглашение в договор
+        </h2>
+        <p class="section-description">
+          Владелец приглашает вас в договор аренды. Подтвердите участие или отклоните.
+        </p>
+
+        <div class="pending-contracts">
+          <PendingContractCard v-for="contract in tenantStore.pendingContracts" :key="contract.id" :contract="contract"
+            @confirm="handleConfirm" />
+        </div>
+      </section>
+
+      <!-- Активный договор -->
+      <section v-if="tenantStore.hasActiveContract" class="section">
+        <h2 class="section-title">
+          <span class="section-icon">📋</span>
+          Мой договор
+        </h2>
+
+        <ActiveContractCard :contract="tenantStore.activeContract!" />
+
+        <!-- Быстрая информация -->
+        <QuickInfo :contract="tenantStore.activeContract!" />
+      </section>
+
+      <!-- Нет договоров -->
+      <div v-if="!tenantStore.hasPendingContracts && !tenantStore.hasActiveContract" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h2>У вас пока нет договоров</h2>
+        <p>Когда владелец добавит вас в договор аренды, он появится здесь</p>
+      </div>
+    </template>
+  </div>
 </template>
 
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { useTenantStore } from '../../stores/tenant';
+import PendingContractCard from '../../components/tenant/PendingContractCard.vue';
+import ActiveContractCard from '../../components/tenant/ActiveContractCard.vue';
+import QuickInfo from '../../components/tenant/QuickInfo.vue';
+
+const tenantStore = useTenantStore();
+
+const loadData = () => tenantStore.fetchContracts();
+
+const handleConfirm = async (contractId: number) => {
+  await tenantStore.confirmContract(contractId);
+};
+
+onMounted(loadData);
+</script>
+
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  padding: 1.5rem 2rem 2rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-h1 {
-  margin: 0;
-  font-size: 1.625rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-p {
-  color: #6b7280;
-  margin: 0.35rem 0 0;
-  font-size: 0.95rem;
-}
-
-.state {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  border: 1px dashed #d1d5db;
-  border-radius: 0.75rem;
-  min-height: 300px;
+.tenant-dashboard {
   padding: 2rem;
-  color: #4b5563;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-.state-loading {
-  background: #f9fafb;
-}
-
-.state-error {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.dashboard-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.dashboard-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #374151;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.75rem;
-  height: 1.75rem;
-  background: #3b82f6;
-  color: white;
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-/* Contract Card */
-.contract-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-}
-
-.contract-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-}
-
-.contract-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.contract-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.contract-item strong {
-  font-size: 0.95rem;
-  color: #111827;
-  word-break: break-word;
-}
-
-.amount {
-  font-size: 1rem;
-  color: #1e40af;
-  font-weight: 700;
-}
-
-/* Payments List */
-.payments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.payment-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.6rem;
-}
-
-.payment-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  align-items: center;
-  gap: 1rem;
-}
-
-.payment-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.payment-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.payment-info strong {
-  font-size: 0.9rem;
-  color: #111827;
-}
-
-.payment-status {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* Requests List */
-.requests-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.request-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.6rem;
-}
-
-.request-grid {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.request-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.request-message {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #374151;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.request-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.request-date {
-  font-size: 0.75rem;
-  color: #9ca3af;
-}
-
-.request-status {
-  display: flex;
-  justify-content: flex-end;
-}
-
+.loading-state,
+.error-state,
 .empty-state {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  min-height: 120px;
-  border: 1px dashed #e5e7eb;
-  border-radius: 0.75rem;
-  background: #f9fafb;
-  color: #9ca3af;
+  justify-content: center;
+  padding: 4rem 2rem;
   text-align: center;
-  padding: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-state p {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.error-state button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section--pending {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.section-icon {
+  font-size: 1.5rem;
+}
+
+.section-description {
+  color: #92400e;
+  margin: 0 0 1.5rem 0;
+}
+
+.pending-contracts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h2 {
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
 }
 
 .empty-state p {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-/* PrimeVue Overrides */
-:deep(.contract-card .p-card-body) {
-  padding: 1rem 1.1rem;
-}
-
-:deep(.contract-card .p-card-content) {
-  padding: 0;
-}
-
-:deep(.payment-item .p-card-body) {
-  padding: 0.75rem 1rem;
-}
-
-:deep(.payment-item .p-card-content) {
-  padding: 0;
-}
-
-:deep(.request-item .p-card-body) {
-  padding: 0.75rem 1rem;
-}
-
-:deep(.request-item .p-card-content) {
-  padding: 0;
-}
-
-:deep(.p-tag) {
-  font-size: 0.7rem;
-  padding: 0.35rem 0.65rem;
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .page-container {
-    padding: 1rem;
-  }
-
-  .contract-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .payment-grid {
-    grid-template-columns: 1fr auto;
-  }
-
-  .request-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .request-status {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 640px) {
-  .page-container {
-    padding: 0.75rem;
-  }
-
-  .contract-grid {
-    grid-template-columns: 1fr;
-  }
-
-  h1 {
-    font-size: 1.35rem;
-  }
+  color: #6b7280;
 }
 </style>

@@ -10,7 +10,7 @@
         :class="{ active: isActive('TenantDashboard') }"
       >
         <span class="nav-icon">📊</span>
-        <span class="nav-label">Панель управления</span>
+        <span class="nav-label">Мой договор</span>
       </router-link>
       <!-- Кнопка платежей -->
       <router-link

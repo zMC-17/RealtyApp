@@ -1,7 +1,11 @@
-<!-- components/properties/PropertyCard.vue -->
 <template>
-    <div class="property-card" @click="$emit('click', property.id)">
-        <div class="property-card__header">
+    <div class="property-card" @click="goToDetail">
+        <!-- Фото -->
+        <div class="property-card__image">
+            <img v-if="property.image_url" :src="getImageUrl(property.image_url)" :alt="property.title" />
+            <div v-else class="property-card__image-placeholder">
+                <span>{{ propertyTypeLabel[0] }}</span>
+            </div>
             <div class="property-type-badge">
                 {{ propertyTypeLabel }}
             </div>
@@ -10,7 +14,6 @@
         <div class="property-card__body">
             <h3 class="property-card__title">{{ property.title }}</h3>
             <p class="property-card__address">
-                <span class="address-icon">📍</span>
                 {{ property.address }}
             </p>
             <p v-if="property.description" class="property-card__description">
@@ -26,16 +29,15 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 import { computed } from 'vue';
 import type { PropertyResponse } from '../../types/property';
 import { PROPERTY_TYPES } from '../../types/property';
 
+const router = useRouter();
+
 const props = defineProps<{
     property: PropertyResponse;
-}>();
-
-defineEmits<{
-    click: [id: number];
 }>();
 
 const propertyTypeLabel = computed(() => {
@@ -45,10 +47,19 @@ const propertyTypeLabel = computed(() => {
 
 const truncatedDescription = computed(() => {
     if (!props.property.description) return '';
-    return props.property.description.length > 100
-        ? props.property.description.substring(0, 100) + '...'
+    return props.property.description.length > 80
+        ? props.property.description.substring(0, 80) + '...'
         : props.property.description;
 });
+
+const getImageUrl = (url: string) => {
+    if (url.startsWith('http')) return url;
+    return `http://localhost:8000${url}`;
+};
+
+const goToDetail = () => {
+    router.push({ name: 'PropertyDetail', params: { id: props.property.id } });
+};
 </script>
 
 <style scoped>
@@ -66,50 +77,70 @@ const truncatedDescription = computed(() => {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.property-card__header {
-    padding: 1rem;
+/* Фото */
+.property-card__image {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+}
+
+.property-card__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.property-card__image-placeholder {
+    width: 100%;
+    height: 100%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.property-card__image-placeholder span {
+    font-size: 3rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .property-type-badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(255, 255, 255, 0.9);
+    color: #374151;
     border-radius: 20px;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
 }
 
 .property-card__body {
-    padding: 1.25rem;
+    padding: 1rem 1.25rem;
 }
 
 .property-card__title {
-    margin: 0 0 0.75rem 0;
-    font-size: 1.25rem;
+    margin: 0 0 0.5rem 0;
+    font-size: 1.15rem;
     color: #2d3748;
     font-weight: 600;
 }
 
 .property-card__address {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     margin: 0 0 0.5rem 0;
     color: #718096;
-    font-size: 0.95rem;
-}
-
-.address-icon {
-    flex-shrink: 0;
+    font-size: 0.9rem;
 }
 
 .property-card__description {
     margin: 0;
     color: #a0aec0;
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 0.85rem;
+    line-height: 1.4;
 }
 
 .property-card__footer {

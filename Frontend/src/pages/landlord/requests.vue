@@ -1,151 +1,255 @@
-<script setup lang="ts">
-import FeaturePlaceholder from '../../components/common/FeaturePlaceholder.vue';
-</script>
-
+<!-- pages/landlord/requests.vue -->
 <template>
-  <FeaturePlaceholder
-    title="Заявки от арендаторов"
-    description="Mock-логика заявок удалена. Этот экран будет заново подключаться к GET /requests/me, GET /requests/owner/me, GET /requests/tenant/me и GET /requests/contracts/{contract_id}."
-    :bullets="[
-      'Владелец должен видеть обращения по своим объектам.',
-      'Изменение статуса заявки будет работать через backend.',
-      'Фильтры и действия появятся после подключения API.'
-    ]"
-  />
+  <div class="landlord-requests">
+    <div class="page-header">
+      <h1>Заявки от арендаторов</h1>
+      <button class="refresh-btn" @click="loadRequests" :disabled="loading">
+        🔄 Обновить
+      </button>
+    </div>
+
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Загрузка заявок...</p>
+    </div>
+
+    <div v-else-if="requests.length === 0" class="empty-state">
+      <div class="empty-icon">📝</div>
+      <h2>Заявок пока нет</h2>
+      <p>Когда арендаторы создадут заявки, они появятся здесь</p>
+    </div>
+
+    <template v-else>
+      <!-- Активные (сгруппированы по объектам) -->
+      <section v-if="activeRequests.length > 0" class="section">
+        <h2 class="section-title section-title--active">
+          <span>📋</span> Активные
+          <span class="count-badge count-badge--active">{{ activeRequests.length }}</span>
+        </h2>
+
+        <div v-for="group in groupedActiveRequests" :key="group.propertyId" class="property-group">
+          <h3 class="group-title">
+            <span>🏠</span>
+            {{ group.propertyTitle }}
+            <span class="group-address">{{ group.propertyAddress }}</span>
+          </h3>
+          <div class="requests-list">
+            <RequestCard v-for="req in group.requests" :key="req.id" :request="req" :show-actions="true"
+              @status-change="handleStatusChange" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Завершённые -->
+      <section v-if="completedRequests.length > 0" class="section">
+        <button class="collapse-btn" @click="showCompleted = !showCompleted">
+          <span>{{ showCompleted ? '✅' : '▶️' }}</span>
+          Завершённые
+          <span class="count-badge count-badge--completed">{{ completedRequests.length }}</span>
+        </button>
+        <div v-if="showCompleted" class="requests-list">
+          <RequestCard v-for="req in completedRequests" :key="req.id" :request="req" :show-actions="true"
+            @status-change="handleStatusChange" />
+        </div>
+      </section>
+    </template>
+  </div>
 </template>
 
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { requestsService } from '../../services/requests';
+import type { RequestWithDetails } from '../../types/request';
+import RequestCard from '../../components/requests/RequestCard.vue';
+
+const requests = ref<RequestWithDetails[]>([]);
+const loading = ref(true);
+const showCompleted = ref(false);
+
+const activeRequests = computed(() =>
+  requests.value.filter(r => r.status === 'open' || r.status === 'in_progress')
+);
+
+const completedRequests = computed(() =>
+  requests.value.filter(r => r.status === 'completed' || r.status === 'cancelled')
+);
+
+// Группировка активных по объектам
+const groupedActiveRequests = computed(() => {
+  const groups = new Map<number, {
+    propertyId: number;
+    propertyTitle: string;
+    propertyAddress: string;
+    requests: RequestWithDetails[];
+  }>();
+
+  for (const req of activeRequests.value) {
+    const propId = req.property_info?.id || 0;
+    if (!groups.has(propId)) {
+      groups.set(propId, {
+        propertyId: propId,
+        propertyTitle: req.property_info?.title || '—',
+        propertyAddress: req.property_info?.address || '',
+        requests: [],
+      });
+    }
+    groups.get(propId)!.requests.push(req);
+  }
+
+  return [...groups.values()];
+});
+
+const loadRequests = async () => {
+  loading.value = true;
+  try {
+    requests.value = await requestsService.getOwnerRequests();
+  } catch (err) {
+    console.error('Ошибка загрузки заявок:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleStatusChange = async (requestId: number, newStatus: string) => {
+  await requestsService.updateRequestStatus(requestId, newStatus);
+  loadRequests();
+};
+
+onMounted(loadRequests);
+</script>
+
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  padding: 1.5rem 2rem 2rem;
-  overflow-x: hidden;
+.landlord-requests {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .page-header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
 }
 
-h1 {
+.page-header h1 {
   margin: 0;
-  font-size: 1.625rem;
-  font-weight: 700;
+  font-size: 1.75rem;
   color: #1f2937;
 }
 
-p {
-  color: #6b7280;
-  margin: 0.35rem 0 0;
-  font-size: 0.95rem;
+.refresh-btn {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
-.state {
+.section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  text-align: center;
-  border: 1px dashed #d1d5db;
-  border-radius: 0.75rem;
-  min-height: 220px;
-  padding: 1.25rem;
-  color: #4b5563;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0;
 }
 
-.state-empty h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  color: #111827;
+.section-title--active {
+  color: #dc2626;
 }
 
-.state-empty p {
-  margin: 0.45rem 0 0;
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 0.5rem;
+  background: #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.state-error {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+.count-badge--active {
+  background: #fecaca;
+  color: #dc2626;
+}
+
+.count-badge--completed {
+  background: #bbf7d0;
+  color: #16a34a;
+}
+
+.property-group {
+  margin-bottom: 1.5rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.group-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.group-address {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin-left: 0.5rem;
 }
 
 .requests-list {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 
-.request-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-}
-
-.request-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.9rem;
-}
-
-.request-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.message {
-  margin: 0 0 0.55rem;
-  color: #111827;
-  font-size: 0.95rem;
-  line-height: 1.45;
-}
-
-.meta-line {
+.collapse-btn {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  color: #6b7280;
-  font-size: 0.84rem;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
-.status-control {
+.loading-state,
+.empty-state {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  min-width: 170px;
+  align-items: center;
+  padding: 4rem 2rem;
+  text-align: center;
 }
 
-.status-control label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #4b5563;
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
 }
 
-:deep(.request-card .p-card-body) {
-  padding: 0.72rem 0.9rem;
-}
-
-:deep(.request-card .p-card-content) {
-  padding: 0;
-}
-
-@media (max-width: 900px) {
-  .page-container {
-    padding: 1rem;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
 
-  .request-row {
-    flex-direction: column;
-  }
-
-  .status-control {
-    min-width: 0;
-    width: 100%;
-  }
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
 }
 </style>
