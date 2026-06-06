@@ -1,4 +1,3 @@
-<!-- components/properties/CreatePropertyModal.vue -->
 <template>
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
         <div class="modal-content">
@@ -37,6 +36,25 @@
                     <span class="char-count">{{ descriptionLength }}/5000</span>
                 </div>
 
+                <!-- Загрузка фото -->
+                <div class="form-group">
+                    <label>Фото объекта</label>
+                    <div class="file-upload-area" @click="triggerFileInput">
+                        <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden
+                            @change="handleFileSelect" />
+                        <div v-if="imagePreview" class="file-preview">
+                            <img :src="imagePreview" alt="Предпросмотр" />
+                            <button type="button" class="file-remove" @click.stop="removeFile">✕</button>
+                        </div>
+                        <div v-else class="file-placeholder">
+                            <span class="file-placeholder-icon">📷</span>
+                            <span>Нажмите чтобы выбрать фото</span>
+                            <span class="file-hint">JPEG, PNG, WebP до 5 МБ</span>
+                        </div>
+                    </div>
+                    <span v-if="uploading" class="upload-status">Загрузка фото...</span>
+                </div>
+
                 <div v-if="propertiesStore.error" class="error-message">
                     {{ propertiesStore.error }}
                 </div>
@@ -45,7 +63,7 @@
                     <button type="button" class="btn-cancel" @click="$emit('close')">
                         Отмена
                     </button>
-                    <button type="submit" class="btn-submit" :disabled="propertiesStore.loading">
+                    <button type="submit" class="btn-submit" :disabled="propertiesStore.loading || uploading">
                         {{ propertiesStore.loading ? 'Создание...' : 'Создать объект' }}
                     </button>
                 </div>
@@ -58,6 +76,7 @@
 import { ref, reactive, computed } from 'vue';
 import { usePropertiesStore } from '../../stores/properties';
 import { PROPERTY_TYPES } from '../../types/property';
+import api from '../../services/api';
 
 const props = defineProps<{
     visible: boolean;
@@ -69,6 +88,11 @@ const emit = defineEmits<{
 }>();
 
 const propertiesStore = usePropertiesStore();
+const fileInput = ref<HTMLInputElement>();
+const selectedFile = ref<File | null>(null);
+const imagePreview = ref<string>('');
+const uploadedImageUrl = ref<string>('');
+const uploading = ref(false);
 
 const form = reactive({
     property_type: '',
@@ -79,21 +103,61 @@ const form = reactive({
 
 const descriptionLength = computed(() => form.description.length);
 
+const triggerFileInput = () => {
+    fileInput.value?.click();
+};
+
+const handleFileSelect = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    selectedFile.value = file;
+    imagePreview.value = URL.createObjectURL(file);
+};
+
+const removeFile = () => {
+    selectedFile.value = null;
+    imagePreview.value = '';
+    uploadedImageUrl.value = '';
+    if (fileInput.value) fileInput.value.value = '';
+};
+
 const resetForm = () => {
     form.property_type = '';
     form.title = '';
     form.address = '';
     form.description = '';
+    removeFile();
+};
+
+const uploadImage = async (): Promise<string | null> => {
+    if (!selectedFile.value) return null;
+    uploading.value = true;
+    try {
+        const formData = new FormData();
+        formData.append('file', selectedFile.value);
+        const { data } = await api.post('/uploads/property-image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data.url;
+    } catch (err) {
+        console.error('Ошибка загрузки фото:', err);
+        return null;
+    } finally {
+        uploading.value = false;
+    }
 };
 
 const handleSubmit = async () => {
     propertiesStore.clearError();
+
+    const imageUrl = await uploadImage();
 
     const result = await propertiesStore.createProperty({
         property_type: form.property_type,
         title: form.title,
         address: form.address,
         description: form.description || undefined,
+        image_url: imageUrl || null,
     });
 
     if (result) {
@@ -213,6 +277,69 @@ textarea {
     text-align: right;
     color: #a0aec0;
     font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* Загрузка фото */
+.file-upload-area {
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.file-upload-area:hover {
+    border-color: #667eea;
+}
+
+.file-placeholder-icon {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.file-placeholder span {
+    display: block;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.file-hint {
+    color: #a0aec0;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.file-preview {
+    position: relative;
+    display: inline-block;
+}
+
+.file-preview img {
+    max-height: 200px;
+    border-radius: 8px;
+}
+
+.file-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.upload-status {
+    display: block;
+    color: #667eea;
+    font-size: 0.85rem;
     margin-top: 0.25rem;
 }
 

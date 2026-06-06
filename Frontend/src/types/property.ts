@@ -6,6 +6,7 @@ export interface PropertyResponse {
     address: string;
     description: string | null;
     property_type: string;
+    image_url: string | null;
 }
 
 export interface PropertyCreate {
@@ -13,6 +14,7 @@ export interface PropertyCreate {
     address: string;
     description?: string;
     property_type: string;
+    image_url: string | null;
 }
 
 // Заготовленные типы недвижимости
