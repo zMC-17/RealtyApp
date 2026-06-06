@@ -1,8 +1,8 @@
-"""create_all_tables
+"""test
 
-Revision ID: e114eb3226cb
+Revision ID: 753b74e7eb88
 Revises: 
-Create Date: 2026-05-30 12:19:52.084041
+Create Date: 2026-06-05 19:27:33.797888
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e114eb3226cb'
+revision: str = '753b74e7eb88'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -38,6 +38,7 @@ def upgrade() -> None:
     sa.Column('address', sa.String(length=255), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('property_type', sa.String(length=50), nullable=False),
+    sa.Column('image_url', sa.String(length=500), nullable=True),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ),
@@ -69,6 +70,8 @@ def upgrade() -> None:
     sa.Column('paid_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.Column('comment', sa.Text(), nullable=True),
+    sa.Column('payment_proof_url', sa.Text(), nullable=True),
+    sa.Column('confirmation_requested_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['contract_id'], ['contracts.id'], ),

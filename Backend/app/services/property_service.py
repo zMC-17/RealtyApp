@@ -24,6 +24,7 @@ class PropertyService:
 			address=payload.address,
 			description=payload.description,
 			property_type=payload.property_type,
+			image_url=payload.image_url,
 		)
 		db.add(prop)
 		await db.flush()

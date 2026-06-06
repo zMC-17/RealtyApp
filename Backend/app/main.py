@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 from app.core.config import settings
-from app.routers import auth, contracts, payments, properties, requests
+from app.routers import auth, contracts, payments, properties, requests, uploads
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -12,6 +12,10 @@ from app.models.property import Property
 from app.models.contract import Contract
 from app.models.request import Request
 from app.models.payment import Payment
+
+
+from fastapi.staticfiles import StaticFiles
+
 
 app = FastAPI(
     title="Realty Management API",
@@ -33,6 +37,9 @@ app.include_router(properties.router)
 app.include_router(contracts.router)
 app.include_router(payments.router)
 app.include_router(requests.router)
+app.include_router(uploads.router)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/health")

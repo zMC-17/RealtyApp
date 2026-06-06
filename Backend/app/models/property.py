@@ -17,6 +17,7 @@ class Property(BaseModel):
     address: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     property_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     owner: Mapped['User'] = relationship('User', back_populates='properties')
     contracts: Mapped[list['Contract']] = relationship('Contract', back_populates='property')
