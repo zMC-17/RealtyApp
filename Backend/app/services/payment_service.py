@@ -35,6 +35,27 @@ def _add_months(orig_date: date, months: int) -> date:
 
 
 class PaymentService:
+
+	@staticmethod
+	async def _mark_overdue_payments(db: AsyncSession, contract_ids: list[int] | None = None) -> int:
+
+		from sqlalchemy import update
+
+		query = (
+			update(Payment)
+			.where(Payment.status == "pending")
+			.where(Payment.due_date < date.today())
+			.values(status="overdue")  # <--- ВОТ ЗДЕСЬ УСТАНАВЛИВАЕТСЯ СТАТУС
+    	)
+
+
+		if contract_ids:
+			query = query.where(Payment.contract_id.in_(contract_ids))
+
+		result = await db.execute(query)
+		await db.commit()
+		return result.rowcount # type: ignore[attr-defined]
+
 	@staticmethod
 	async def list_related_payments(user_id: int, db: AsyncSession) -> List[Payment]:
 		"""Получить все платежи, связанные с пользователем как с арендатором или владельцем."""
@@ -80,6 +101,8 @@ class PaymentService:
 	async def _list_payments_for_contracts(contract_ids: list[int], db: AsyncSession) -> List[Payment]:
 		if not contract_ids:
 			return []
+
+		await PaymentService._mark_overdue_payments(db, contract_ids=contract_ids)
 
 		stmt = (
 			select(Payment)

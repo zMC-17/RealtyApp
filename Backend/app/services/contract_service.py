@@ -24,55 +24,16 @@ def _add_months(orig_date: date, months: int) -> date:
 
 
 class ContractService:
+
     @staticmethod
-    async def create_contract(payload: ContractCreate, owner_user: User, db: AsyncSession) -> Contract:
-        """Создать договор и автоматически сгенерировать платежи.
-
-        Процесс:
-        1. Проверяем что объект существует и принадлежит владельцу
-        2. Проверяем что арендатор существует
-        3. Создаём запись договора в БД
-        4. Генерируем платежи на каждый месяц (автоматически!)
-        5. Возвращаем договор с привязанными платежами
-        """
-        # Проверяем объект
-        prop_stmt = select(Property).where(Property.id == payload.property_id)
-        prop_res = await db.execute(prop_stmt)
-        prop = prop_res.scalars().first()
-
-        if prop is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
-
-        if prop.owner_id != owner_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создавать договор может только владелец объекта")
-
-        # Проверяем арендатора
-        tenant_stmt = select(User).where(User.id == payload.tenant_id)
-        tenant_res = await db.execute(tenant_stmt)
-        tenant = tenant_res.scalars().first()
-        if tenant is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Арендатор не найден")
-
-        # Создаём договор
-        contract_obj = Contract(
-            property_id=payload.property_id,
-            tenant_id=payload.tenant_id,
-            start_date=payload.start_date,
-            end_date=payload.end_date,
-            monthly_payment=payload.monthly_payment,
-            security_deposit=payload.security_deposit,
-            status=payload.status,
+    async def _has_active_contract(tenant_id: int, db: AsyncSession) -> bool:
+        """Проверяет, есть ли у арендатора уже активный договор."""
+        stmt = select(Contract).where(
+            Contract.tenant_id == tenant_id,
+            Contract.status == "active"
         )
-
-        db.add(contract_obj)
-        await db.flush()  # получаем contract_obj.id перед генерацией платежей
-
-        # Автоматически генерируем платежи на все месяцы договора
-        await PaymentService.generate_payments_for_contract(contract_obj, db)
-        await db.commit()
-        await db.refresh(contract_obj)
-
-        return contract_obj
+        result = await db.execute(stmt)
+        return result.scalars().first() is not None
 
     @staticmethod
     async def create_contract_by_email(payload: ContractCreateByEmail, owner_user: User, db: AsyncSession) -> Contract:
@@ -93,6 +54,12 @@ class ContractService:
 
         if tenant is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Арендатор не найден")
+
+        if await ContractService._has_active_contract(tenant.id, db):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="У арендатора уже есть активный договор. Невозможно создать новый."
+        )
 
         contract_obj = Contract(
             property_id=payload.property_id,
@@ -215,3 +182,54 @@ class ContractService:
         contract = await ContractService.get_owned(contract_id, owner_id, db)
         await db.delete(contract)
         await db.commit()
+
+
+# @staticmethod
+    # async def create_contract(payload: ContractCreate, owner_user: User, db: AsyncSession) -> Contract:
+    #     """Создать договор и автоматически сгенерировать платежи.
+
+    #     Процесс:
+    #     1. Проверяем что объект существует и принадлежит владельцу
+    #     2. Проверяем что арендатор существует
+    #     3. Создаём запись договора в БД
+    #     4. Генерируем платежи на каждый месяц (автоматически!)
+    #     5. Возвращаем договор с привязанными платежами
+    #     """
+    #     # Проверяем объект
+    #     prop_stmt = select(Property).where(Property.id == payload.property_id)
+    #     prop_res = await db.execute(prop_stmt)
+    #     prop = prop_res.scalars().first()
+
+    #     if prop is None:
+    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Объект не найден")
+
+    #     if prop.owner_id != owner_user.id:
+    #         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создавать договор может только владелец объекта")
+
+    #     # Проверяем арендатора
+    #     tenant_stmt = select(User).where(User.id == payload.tenant_id)
+    #     tenant_res = await db.execute(tenant_stmt)
+    #     tenant = tenant_res.scalars().first()
+    #     if tenant is None:
+    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Арендатор не найден")
+
+    #     # Создаём договор
+    #     contract_obj = Contract(
+    #         property_id=payload.property_id,
+    #         tenant_id=payload.tenant_id,
+    #         start_date=payload.start_date,
+    #         end_date=payload.end_date,
+    #         monthly_payment=payload.monthly_payment,
+    #         security_deposit=payload.security_deposit,
+    #         status=payload.status,
+    #     )
+
+    #     db.add(contract_obj)
+    #     await db.flush()  # получаем contract_obj.id перед генерацией платежей
+
+    #     # Автоматически генерируем платежи на все месяцы договора
+    #     await PaymentService.generate_payments_for_contract(contract_obj, db)
+    #     await db.commit()
+    #     await db.refresh(contract_obj)
+
+    #     return contract_obj
