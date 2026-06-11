@@ -1,210 +1,353 @@
-<!-- components/properties/EditPropertyModal.vue -->
-<template>
-    <div class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Редактировать объект</h2>
-                <button class="modal-close" @click="$emit('close')">✕</button>
-            </div>
+    <!-- components/properties/EditPropertyModal.vue -->
+    <template>
+        <div class="modal-overlay" @click.self="$emit('close')">
+            <div class="modal-box">
 
-            <form @submit.prevent="handleSubmit" class="modal-body">
-                <div class="form-group">
-                    <label for="editPropertyType">Тип недвижимости *</label>
-                    <select id="editPropertyType" v-model="form.property_type" required :disabled="loading">
-                        <option value="" disabled>Выберите тип</option>
-                        <option v-for="type in PROPERTY_TYPES" :key="type.value" :value="type.value">
-                            {{ type.label }}
-                        </option>
-                    </select>
+                <div class="modal-header">
+                    <span class="modal-title">Редактировать объект</span>
+                    <button class="modal-close" @click="$emit('close')">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"
+                                stroke-linecap="round" />
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="form-group">
-                    <label for="editTitle">Название *</label>
-                    <input id="editTitle" v-model="form.title" type="text" required minlength="3" maxlength="255"
-                        :disabled="loading" />
-                </div>
+                <form @submit.prevent="handleSubmit" class="modal-body">
 
-                <div class="form-group">
-                    <label for="editAddress">Адрес *</label>
-                    <input id="editAddress" v-model="form.address" type="text" required minlength="5" maxlength="255"
-                        :disabled="loading" />
-                </div>
+                    <div class="field">
+                        <label class="field-label" for="editPropertyType">Тип недвижимости *</label>
+                        <div class="select-wrap">
+                            <select class="field-input" id="editPropertyType" v-model="form.property_type" required
+                                :disabled="loading">
+                                <option value="" disabled>Выберите тип</option>
+                                <option v-for="type in PROPERTY_TYPES" :key="type.value" :value="type.value">
+                                    {{ type.label }}
+                                </option>
+                            </select>
+                            <svg class="select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                    </div>
 
-                <div class="form-group">
-                    <label for="editDescription">Описание</label>
-                    <textarea id="editDescription" v-model="form.description" rows="4" maxlength="5000"
-                        :disabled="loading" placeholder="Опишите особенности объекта..." />
-                </div>
+                    <div class="field">
+                        <label class="field-label" for="editTitle">Название *</label>
+                        <input class="field-input" id="editTitle" v-model="form.title" type="text" required minlength="3"
+                            maxlength="255" :disabled="loading" />
+                    </div>
 
-                <div v-if="error" class="error-message">
-                    {{ error }}
-                </div>
+                    <div class="field">
+                        <label class="field-label" for="editAddress">Адрес *</label>
+                        <input class="field-input" id="editAddress" v-model="form.address" type="text" required
+                            minlength="5" maxlength="255" :disabled="loading" />
+                    </div>
 
-                <div class="modal-actions">
-                    <button type="button" class="btn-cancel" @click="$emit('close')" :disabled="loading">
+                    <div class="field">
+                        <label class="field-label" for="editDescription">Описание</label>
+                        <textarea class="field-input field-textarea" id="editDescription" v-model="form.description"
+                            rows="4" maxlength="5000" :disabled="loading" placeholder="Опишите особенности объекта…" />
+                        <span class="field-hint">{{ form.description.length }} / 5000</span>
+                    </div>
+
+                    <div v-if="error" class="notice notice--danger">{{ error }}</div>
+
+                </form>
+
+                <div class="modal-footer">
+                    <button class="btn-cancel" type="button" @click="$emit('close')" :disabled="loading">
                         Отмена
                     </button>
-                    <button type="submit" class="btn-submit" :disabled="loading">
-                        {{ loading ? 'Сохранение...' : 'Сохранить изменения' }}
+                    <button class="btn-confirm" type="button" :disabled="loading" @click="handleSubmit">
+                        <span v-if="loading" class="btn-spinner"></span>
+                        {{ loading ? 'Сохранение…' : 'Сохранить изменения' }}
                     </button>
                 </div>
-            </form>
+
+            </div>
         </div>
-    </div>
-</template>
+    </template>
 
-<script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
-import { propertiesService } from '../../services/properties';
-import { usePropertiesStore } from '../../stores/properties';
-import { PROPERTY_TYPES } from '../../types/property';
-import type { PropertyResponse, PropertyCreate } from '../../types/property';
+    <script setup lang="ts">
+    import { reactive, ref } from 'vue';
+    import { propertiesService } from '../../services/properties';
+    import { PROPERTY_TYPES } from '../../types/property';
+    import type { PropertyResponse, PropertyCreate } from '../../types/property';
 
-const props = defineProps<{
-    property: PropertyResponse;
-}>();
+    const props = defineProps<{ property: PropertyResponse }>();
+    const emit = defineEmits<{ close: []; updated: [property: PropertyResponse] }>();
 
-const emit = defineEmits<{
-    close: [];
-    updated: [property: PropertyResponse];
-}>();
+    const loading = ref(false);
+    const error = ref('');
 
-const propertiesStore = usePropertiesStore();
-const loading = ref(false);
-const error = ref('');
+    const form = reactive<PropertyCreate>({
+        property_type: props.property.property_type,
+        title: props.property.title,
+        address: props.property.address,
+        description: props.property.description || '',
+        image_url: props.property.image_url
+    });
 
-const form = reactive<PropertyCreate>({
-    property_type: props.property.property_type,
-    title: props.property.title,
-    address: props.property.address,
-    description: props.property.description || '',
-});
+    const handleSubmit = async () => {
+        loading.value = true; error.value = '';
+        try {
+            const updated = await propertiesService.updateProperty(props.property.id, form);
+            emit('updated', updated);
+        } catch (err: any) {
+            error.value = err.response?.data?.detail || 'Ошибка обновления объекта';
+        } finally {
+            loading.value = false;
+        }
+    };
+    </script>
 
-const handleSubmit = async () => {
-    loading.value = true;
-    error.value = '';
-
-    try {
-        const updated = await propertiesService.updateProperty(props.property.id, form);
-        emit('updated', updated);
-    } catch (err: any) {
-        error.value = err.response?.data?.detail || 'Ошибка обновления объекта';
-    } finally {
-        loading.value = false;
+    <style scoped>
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(28, 26, 23, 0.40);
+        backdrop-filter: blur(6px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 180ms ease;
     }
-};
-</script>
 
-<style scoped>
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
+    .modal-box {
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(32px) saturate(160%);
+        -webkit-backdrop-filter: blur(32px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.80);
+        border-radius: var(--radius-xl);
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 24px 60px rgba(28, 26, 23, 0.16);
+        animation: slideUp 220ms ease;
+        overflow: hidden;
+    }
 
-.modal-content {
-    background: white;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-}
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-6) var(--space-6) var(--space-5);
+        border-bottom: 1px solid rgba(28, 26, 23, 0.08);
+        flex-shrink: 0;
+    }
 
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
-}
+    .modal-title {
+        font-size: var(--text-md);
+        font-weight: 700;
+        color: var(--color-dark);
+        letter-spacing: -0.02em;
+    }
 
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-}
+    .modal-close {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: rgba(28, 26, 23, 0.06);
+        color: var(--color-dark-60);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition);
+    }
 
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: #6b7280;
-    cursor: pointer;
-}
+    .modal-close:hover {
+        background: rgba(28, 26, 23, 0.12);
+        color: var(--color-dark);
+    }
 
-.modal-body {
-    padding: 1.5rem;
-}
+    .modal-body {
+        padding: var(--space-6);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+        overflow-y: auto;
+        flex: 1;
+    }
 
-.form-group {
-    margin-bottom: 1.25rem;
-}
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+    }
 
-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #374151;
-}
+    .field-label {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-dark-35);
+    }
 
-input,
-select,
-textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    box-sizing: border-box;
-}
+    .field-input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: rgba(255, 255, 255, 0.65);
+        border: 1px solid rgba(28, 26, 23, 0.12);
+        border-radius: var(--radius-md);
+        color: var(--color-dark);
+        font-family: var(--font-base);
+        font-size: var(--text-base);
+        transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    }
 
-textarea {
-    resize: vertical;
-    min-height: 100px;
-}
+    .field-input:focus {
+        outline: none;
+        background: rgba(255, 255, 255, 0.90);
+        border-color: var(--color-emerald-20);
+        box-shadow: 0 0 0 3px var(--color-emerald-08);
+    }
 
-.error-message {
-    background: #fef2f2;
-    color: #dc2626;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-}
+    .field-input:disabled {
+        opacity: 0.50;
+        cursor: not-allowed;
+    }
 
-.modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: flex-end;
-    margin-top: 1.5rem;
-}
+    .field-textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
 
-.btn-cancel,
-.btn-submit {
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 500;
-    cursor: pointer;
-}
+    .field-hint {
+        font-size: var(--text-xs);
+        color: var(--color-dark-35);
+        text-align: right;
+    }
 
-.btn-cancel {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-}
+    .select-wrap {
+        position: relative;
+    }
 
-.btn-submit {
-    background: #667eea;
-    border: none;
-    color: white;
-}
+    select.field-input {
+        appearance: none;
+        padding-right: var(--space-8);
+        cursor: pointer;
+    }
 
-.btn-submit:hover:not(:disabled) {
-    background: #5a67d8;
-}
-</style>
+    .select-arrow {
+        position: absolute;
+        right: var(--space-4);
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-dark-35);
+        pointer-events: none;
+    }
+
+    .notice--danger {
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-md);
+        background: var(--color-danger-bg);
+        color: var(--color-danger);
+        border: 1px solid rgba(185, 64, 64, 0.18);
+        font-size: var(--text-sm);
+        font-weight: 500;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: var(--space-3);
+        padding: var(--space-5) var(--space-6);
+        border-top: 1px solid rgba(28, 26, 23, 0.08);
+        flex-shrink: 0;
+    }
+
+    .btn-cancel {
+        flex: 1;
+        padding: var(--space-3);
+        background: rgba(28, 26, 23, 0.06);
+        border: 1px solid rgba(28, 26, 23, 0.10);
+        border-radius: var(--radius-md);
+        color: var(--color-dark-60);
+        font-family: var(--font-base);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition);
+    }
+
+    .btn-cancel:hover:not(:disabled) {
+        background: rgba(28, 26, 23, 0.10);
+        color: var(--color-dark);
+    }
+
+    .btn-cancel:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .btn-confirm {
+        flex: 1;
+        padding: var(--space-3);
+        background: var(--color-dark);
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--color-bg);
+        font-family: var(--font-base);
+        font-size: var(--text-sm);
+        font-weight: 700;
+        cursor: pointer;
+        transition: all var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+    }
+
+    .btn-confirm:hover:not(:disabled) {
+        background: #2d2b27;
+        box-shadow: 0 4px 16px rgba(28, 26, 23, 0.20);
+    }
+
+    .btn-confirm:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .btn-spinner {
+        width: 13px;
+        height: 13px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+        flex-shrink: 0;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(16px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    </style>

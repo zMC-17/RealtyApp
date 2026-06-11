@@ -1,12 +1,15 @@
 <template>
   <div class="app-container">
-    <!-- Заголовок с переключателем ролей -->
-    <header class="app-header">
-      <div class="header-content">
-        <h1 class="app-title">RealtyApp</h1>
 
-        <!-- Переключатель режимов работы (Владелец / Арендатор) -->
-        <div class="role-selector">
+    <!-- Стеклянный хедер — фон просвечивает из дочернего лейаута -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="app-brand">
+          <span class="brand-mark">R</span>
+          <span class="brand-name">Realty</span>
+        </div>
+
+        <div class="role-switcher">
           <button class="role-btn" :class="{ active: roleStore.getRole === 'landlord' }"
             @click="switchRole('landlord')">
             Владелец
@@ -16,172 +19,192 @@
           </button>
         </div>
 
-        <!-- Кнопка выхода -->
         <button class="logout-btn" @click="logout">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M6 2H2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5H6M10 10.5l3-3-3-3M13 7.5H5.5" stroke="currentColor"
+              stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
           Выход
         </button>
       </div>
     </header>
 
-    <!-- Основная область содержимого -->
     <main class="app-main">
       <router-view />
     </main>
+
   </div>
 </template>
 
 <script setup lang="ts">
-
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import type { UserRole } from '../types';
 import { onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoleStore } from '../stores/role';
+import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
 const route = useRoute();
-import { useRoleStore } from '../stores/role';
-import { useAuthStore } from '../stores/auth';
 const roleStore = useRoleStore();
 const authStore = useAuthStore();
 
-
 const syncRoleFromUrl = () => {
-  if (route.path.includes('/tenant')) {
-    roleStore.setRole('tenant');
-  } else if (route.path.includes('/landlord')) {
-    roleStore.setRole('landlord');
-  }
+  if (route.path.includes('/tenant')) roleStore.setRole('tenant');
+  else if (route.path.includes('/landlord')) roleStore.setRole('landlord');
 };
 
-// Запускаем при монтировании компонента
 onMounted(syncRoleFromUrl);
-
-// И при каждом изменении маршрута
 watch(() => route.path, syncRoleFromUrl);
-/**
- * Переключение между ролями владельца и арендатора
- * При смене роли перенаправляет на первую страницу соответствующего раздела
- */
+
 const switchRole = (role: UserRole) => {
   roleStore.setRole(role);
-
-  if (role === 'landlord') {
-    router.push({ name: 'LandlordProperties' });
-  } else {
-    router.push({ name: 'TenantDashboard' });
-  }
+  router.push({ name: role === 'landlord' ? 'LandlordDashboard' : 'TenantDashboard' });
 };
 
-/*
- * Выход из системы
- */
 const logout = () => {
-  // TODO: Интеграция с хранилищем и очистка токена
   authStore.logout();
   router.push({ name: 'AuthLogin' });
 };
 </script>
 
 <style scoped>
+/* Контейнер — прозрачный, фон идёт из дочернего лейаута (Landlord/Tenant) */
 .app-container {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background-color: #f5f5f5;
+  background: transparent;
 }
 
+/* ---- Стеклянный хедер ---- */
+/*
+  Лежит поверх blob-фона дочернего лейаута.
+  Стекло чуть плотнее, чем сайдбар — он «ближе» к пользователю.
+*/
 .app-header {
+  position: relative;
+  z-index: 10;
   flex-shrink: 0;
   width: 100%;
-  background-color: #fff;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  height: 56px;
+  padding: 0 var(--space-8);
+  /* Стекло */
+  background: rgba(242, 237, 227, 0.60);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  /* Нижняя граница — полупрозрачная, не режет фон */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+  /* Блик снизу имитирует толщину стекла */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 1px 12px rgba(28, 26, 23, 0.06);
 }
 
-.header-content {
+.header-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-6);
+  height: 100%;
 }
 
-.app-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.role-selector {
+/* ---- Бренд ---- */
+.app-brand {
   display: flex;
-  gap: 0.5rem;
-  background-color: #f0f0f0;
-  padding: 0.25rem;
-  border-radius: 0.375rem;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+  flex-shrink: 0;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-emerald);
+  color: #fff;
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border-radius: var(--radius-sm);
+}
+
+.brand-name {
+  font-family: var(--font-base);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--color-dark);
+  letter-spacing: -0.02em;
+}
+
+/* ---- Переключатель ролей ---- */
+.role-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(28, 26, 23, 0.08);
+  padding: 3px;
+  border-radius: var(--radius-md);
 }
 
 .role-btn {
-  padding: 0.5rem 1rem;
+  padding: var(--space-2) var(--space-4);
   border: none;
-  background-color: transparent;
-  border-radius: 0.25rem;
+  background: transparent;
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
   font-weight: 500;
-  color: #6b7280;
-  transition: all 0.2s ease;
+  color: var(--color-dark-60);
+  transition: all var(--transition);
+  white-space: nowrap;
 }
 
 .role-btn:hover {
-  color: #374151;
+  color: var(--color-dark);
 }
 
 .role-btn.active {
-  background-color: #fff;
-  color: #1f2937;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-dark);
+  color: var(--color-bg);
+  font-weight: 600;
 }
 
+/* ---- Выход ---- */
 .logout-btn {
-  padding: 0.5rem 1rem;
-  background-color: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid rgba(28, 26, 23, 0.12);
+  border-radius: var(--radius-md);
+  color: var(--color-dark-60);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all var(--transition);
+  flex-shrink: 0;
 }
 
 .logout-btn:hover {
-  border-color: #9ca3af;
-  color: #374151;
+  border-color: rgba(28, 26, 23, 0.25);
+  color: var(--color-dark);
+  background: rgba(255, 255, 255, 0.35);
 }
 
+/* ---- Main ---- */
 .app-main {
   flex: 1;
   width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-}
-
-/* Скроллинг для очень длинного содержимого */
-.app-main::-webkit-scrollbar {
-  width: 8px;
-}
-
-.app-main::-webkit-scrollbar-track {
+  /* Прозрачный — дочерний лейаут несёт фон */
   background: transparent;
-}
-
-.app-main::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
-}
-
-.app-main::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
 }
 </style>

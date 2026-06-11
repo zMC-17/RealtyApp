@@ -1,111 +1,129 @@
+<!-- components/properties/CreatePropertyModal.vue -->
 <template>
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal-content">
+        <div class="modal-box">
+
             <div class="modal-header">
-                <h2>Добавить новый объект</h2>
-                <button class="modal-close" @click="$emit('close')">✕</button>
+                <span class="modal-title">Добавить объект</span>
+                <button class="modal-close" @click="$emit('close')">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" />
+                    </svg>
+                </button>
             </div>
 
             <form @submit.prevent="handleSubmit" class="modal-body">
-                <div class="form-group">
-                    <label for="propertyType">Тип недвижимости *</label>
-                    <select id="propertyType" v-model="form.property_type" required>
-                        <option value="" disabled>Выберите тип</option>
-                        <option v-for="type in PROPERTY_TYPES" :key="type.value" :value="type.value">
-                            {{ type.label }}
-                        </option>
-                    </select>
+
+                <div class="field">
+                    <label class="field-label" for="propertyType">Тип недвижимости *</label>
+                    <div class="select-wrap">
+                        <select id="propertyType" class="field-input" v-model="form.property_type" required>
+                            <option value="" disabled>Выберите тип</option>
+                            <option v-for="type in PROPERTY_TYPES" :key="type.value" :value="type.value">
+                                {{ type.label }}
+                            </option>
+                        </select>
+                        <svg class="select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="title">Название *</label>
-                    <input id="title" v-model="form.title" type="text" required minlength="3" maxlength="255"
-                        placeholder="Например: Уютная квартира в центре" />
+                <div class="field">
+                    <label class="field-label" for="propTitle">Название *</label>
+                    <input class="field-input" id="propTitle" v-model="form.title" type="text" required minlength="3"
+                        maxlength="255" placeholder="Например: Уютная квартира в центре" />
                 </div>
 
-                <div class="form-group">
-                    <label for="address">Адрес *</label>
-                    <input id="address" v-model="form.address" type="text" required minlength="5" maxlength="255"
-                        placeholder="Например: ул. Ленина, д. 10, кв. 5" />
+                <div class="field">
+                    <label class="field-label" for="propAddress">Адрес *</label>
+                    <input class="field-input" id="propAddress" v-model="form.address" type="text" required
+                        minlength="5" maxlength="255" placeholder="ул. Ленина, д. 10, кв. 5" />
                 </div>
 
-                <div class="form-group">
-                    <label for="description">Описание</label>
-                    <textarea id="description" v-model="form.description" rows="4" maxlength="5000"
-                        placeholder="Опишите особенности объекта, состояние, преимущества..." />
-                    <span class="char-count">{{ descriptionLength }}/5000</span>
+                <div class="field">
+                    <label class="field-label" for="propDescription">Описание</label>
+                    <textarea class="field-input field-textarea" id="propDescription" v-model="form.description"
+                        rows="4" maxlength="5000" placeholder="Особенности объекта, состояние, преимущества…" />
+                    <span class="field-hint">{{ form.description.length }} / 5000</span>
                 </div>
 
                 <!-- Загрузка фото -->
-                <div class="form-group">
-                    <label>Фото объекта</label>
-                    <div class="file-upload-area" @click="triggerFileInput">
+                <div class="field">
+                    <label class="field-label">Фото объекта</label>
+                    <div class="upload-area" :class="{ 'upload-area--has-file': imagePreview }"
+                        @click="triggerFileInput">
                         <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden
                             @change="handleFileSelect" />
-                        <div v-if="imagePreview" class="file-preview">
+
+                        <div v-if="imagePreview" class="upload-preview">
                             <img :src="imagePreview" alt="Предпросмотр" />
-                            <button type="button" class="file-remove" @click.stop="removeFile">✕</button>
+                            <button type="button" class="upload-remove" @click.stop="removeFile">
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                    <path d="M1 1l8 8M9 1L1 9" stroke="white" stroke-width="1.5"
+                                        stroke-linecap="round" />
+                                </svg>
+                            </button>
                         </div>
-                        <div v-else class="file-placeholder">
-                            <span class="file-placeholder-icon">📷</span>
-                            <span>Нажмите чтобы выбрать фото</span>
-                            <span class="file-hint">JPEG, PNG, WebP до 5 МБ</span>
+
+                        <div v-else class="upload-placeholder">
+                            <div class="upload-icon">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M3.5 13.5v2A1.5 1.5 0 0 0 5 17h10a1.5 1.5 0 0 0 1.5-1.5v-2"
+                                        stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                                    <path d="M10 3v9M7 6l3-3 3 3" stroke="currentColor" stroke-width="1.3"
+                                        stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <span class="upload-text">Нажмите чтобы выбрать фото</span>
+                            <span class="upload-hint">JPEG, PNG, WebP · до 5 МБ</span>
                         </div>
                     </div>
-                    <span v-if="uploading" class="upload-status">Загрузка фото...</span>
+                    <span v-if="uploading" class="upload-status">
+                        <span class="upload-status-dot"></span>
+                        Загрузка фото…
+                    </span>
                 </div>
 
-                <div v-if="propertiesStore.error" class="error-message">
+                <div v-if="propertiesStore.error" class="field-error-block">
                     {{ propertiesStore.error }}
                 </div>
 
-                <div class="modal-actions">
-                    <button type="button" class="btn-cancel" @click="$emit('close')">
-                        Отмена
-                    </button>
-                    <button type="submit" class="btn-submit" :disabled="propertiesStore.loading || uploading">
-                        {{ propertiesStore.loading ? 'Создание...' : 'Создать объект' }}
-                    </button>
-                </div>
             </form>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" type="button" @click="$emit('close')">Отмена</button>
+                <button class="btn-confirm" type="button" :disabled="propertiesStore.loading || uploading"
+                    @click="handleSubmit">
+                    <span v-if="propertiesStore.loading || uploading" class="btn-spinner"></span>
+                    {{ propertiesStore.loading ? 'Создание…' : uploading ? 'Загрузка…' : 'Создать объект' }}
+                </button>
+            </div>
+
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive } from 'vue';
 import { usePropertiesStore } from '../../stores/properties';
 import { PROPERTY_TYPES } from '../../types/property';
 import api from '../../services/api';
 
-const props = defineProps<{
-    visible: boolean;
-}>();
-
-const emit = defineEmits<{
-    close: [];
-    created: [];
-}>();
+defineProps<{ visible: boolean }>();
+const emit = defineEmits<{ close: []; created: [] }>();
 
 const propertiesStore = usePropertiesStore();
 const fileInput = ref<HTMLInputElement>();
 const selectedFile = ref<File | null>(null);
-const imagePreview = ref<string>('');
-const uploadedImageUrl = ref<string>('');
+const imagePreview = ref('');
 const uploading = ref(false);
 
-const form = reactive({
-    property_type: '',
-    title: '',
-    address: '',
-    description: '',
-});
+const form = reactive({ property_type: '', title: '', address: '', description: '' });
 
-const descriptionLength = computed(() => form.description.length);
-
-const triggerFileInput = () => {
-    fileInput.value?.click();
-};
+const triggerFileInput = () => fileInput.value?.click();
 
 const handleFileSelect = (e: Event) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -117,15 +135,11 @@ const handleFileSelect = (e: Event) => {
 const removeFile = () => {
     selectedFile.value = null;
     imagePreview.value = '';
-    uploadedImageUrl.value = '';
     if (fileInput.value) fileInput.value.value = '';
 };
 
 const resetForm = () => {
-    form.property_type = '';
-    form.title = '';
-    form.address = '';
-    form.description = '';
+    form.property_type = ''; form.title = ''; form.address = ''; form.description = '';
     removeFile();
 };
 
@@ -133,25 +147,19 @@ const uploadImage = async (): Promise<string | null> => {
     if (!selectedFile.value) return null;
     uploading.value = true;
     try {
-        const formData = new FormData();
-        formData.append('file', selectedFile.value);
-        const { data } = await api.post('/uploads/property-image', formData, {
+        const fd = new FormData();
+        fd.append('file', selectedFile.value);
+        const { data } = await api.post('/uploads/property-image', fd, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data.url;
-    } catch (err) {
-        console.error('Ошибка загрузки фото:', err);
-        return null;
-    } finally {
-        uploading.value = false;
-    }
+    } catch { return null; }
+    finally { uploading.value = false; }
 };
 
 const handleSubmit = async () => {
     propertiesStore.clearError();
-
     const imageUrl = await uploadImage();
-
     const result = await propertiesStore.createProperty({
         property_type: form.property_type,
         title: form.title,
@@ -159,240 +167,344 @@ const handleSubmit = async () => {
         description: form.description || undefined,
         image_url: imageUrl || null,
     });
-
-    if (result) {
-        resetForm();
-        emit('created');
-        emit('close');
-    }
+    if (result) { resetForm(); emit('created'); emit('close'); }
 };
 </script>
 
 <style scoped>
+/* ---- Оверлей ---- */
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(28, 26, 23, 0.40);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fadeIn 0.2s ease;
+    animation: fadeIn 180ms ease;
 }
 
-.modal-content {
-    background: white;
-    border-radius: 12px;
+/* ---- Окно ---- */
+.modal-box {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.80);
+    border-radius: var(--radius-xl);
     width: 90%;
     max-width: 500px;
     max-height: 90vh;
-    overflow-y: auto;
-    animation: slideUp 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 24px 60px rgba(28, 26, 23, 0.16);
+    animation: slideUp 220ms ease;
+    overflow: hidden;
 }
 
+/* ---- Шапка ---- */
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    border-bottom: 1px solid rgba(28, 26, 23, 0.08);
+    flex-shrink: 0;
 }
 
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: #2d3748;
+.modal-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--color-dark);
+    letter-spacing: -0.02em;
 }
 
 .modal-close {
-    background: none;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
     border: none;
-    font-size: 1.5rem;
-    color: #a0aec0;
+    background: rgba(28, 26, 23, 0.06);
+    color: var(--color-dark-60);
     cursor: pointer;
-    padding: 0.25rem;
-    line-height: 1;
-    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
 }
 
 .modal-close:hover {
-    color: #4a5568;
+    background: rgba(28, 26, 23, 0.12);
+    color: var(--color-dark);
 }
 
+/* ---- Тело ---- */
 .modal-body {
-    padding: 1.5rem;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    overflow-y: auto;
+    flex: 1;
 }
 
-.form-group {
-    margin-bottom: 1.5rem;
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #4a5568;
-    font-size: 0.9rem;
+.field-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-dark-35);
 }
 
-input,
-select,
-textarea {
+.field-input {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: border-color 0.3s, box-shadow 0.3s;
-    box-sizing: border-box;
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(28, 26, 23, 0.12);
+    border-radius: var(--radius-md);
+    color: var(--color-dark);
+    font-family: var(--font-base);
+    font-size: var(--text-base);
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+.field-input::placeholder {
+    color: var(--color-dark-35);
+}
+
+.field-input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: rgba(255, 255, 255, 0.90);
+    border-color: var(--color-emerald-20);
+    box-shadow: 0 0 0 3px var(--color-emerald-08);
 }
 
-select {
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 1.25rem;
-    padding-right: 2.5rem;
-}
-
-textarea {
+.field-textarea {
     resize: vertical;
-    min-height: 100px;
+    min-height: 96px;
 }
 
-.char-count {
-    display: block;
+/* Select — убираем нативную стрелку, добавляем свою */
+.select-wrap {
+    position: relative;
+}
+
+.field-input[type=""] select,
+select.field-input {
+    appearance: none;
+    padding-right: var(--space-8);
+}
+
+select.field-input {
+    appearance: none;
+    padding-right: var(--space-8);
+    cursor: pointer;
+}
+
+.select-arrow {
+    position: absolute;
+    right: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-dark-35);
+    pointer-events: none;
+}
+
+.field-hint {
+    font-size: var(--text-xs);
+    color: var(--color-dark-35);
     text-align: right;
-    color: #a0aec0;
-    font-size: 0.8rem;
-    margin-top: 0.25rem;
 }
 
-/* Загрузка фото */
-.file-upload-area {
-    border: 2px dashed #e2e8f0;
-    border-radius: 8px;
-    padding: 1.5rem;
+/* ---- Загрузка фото ---- */
+.upload-area {
+    border: 1.5px dashed rgba(28, 26, 23, 0.20);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.3s;
+    background: rgba(255, 255, 255, 0.40);
+    transition: border-color var(--transition), background var(--transition);
 }
 
-.file-upload-area:hover {
-    border-color: #667eea;
+.upload-area:hover,
+.upload-area--has-file {
+    border-color: rgba(26, 107, 74, 0.30);
+    background: rgba(26, 107, 74, 0.03);
 }
 
-.file-placeholder-icon {
-    display: block;
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
 }
 
-.file-placeholder span {
-    display: block;
-    color: #4a5568;
-    font-size: 0.9rem;
+.upload-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: rgba(28, 26, 23, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-dark-35);
+    margin-bottom: var(--space-1);
 }
 
-.file-hint {
-    color: #a0aec0;
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
+.upload-text {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-dark-60);
 }
 
-.file-preview {
+.upload-hint {
+    font-size: var(--text-xs);
+    color: var(--color-dark-35);
+}
+
+.upload-preview {
     position: relative;
     display: inline-block;
 }
 
-.file-preview img {
-    max-height: 200px;
-    border-radius: 8px;
+.upload-preview img {
+    max-height: 180px;
+    border-radius: var(--radius-md);
+    display: block;
 }
 
-.file-remove {
+.upload-remove {
     position: absolute;
     top: -8px;
     right: -8px;
-    width: 24px;
-    height: 24px;
-    background: #ef4444;
-    color: white;
-    border: none;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
+    background: var(--color-danger);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-size: 0.75rem;
+    transition: background var(--transition);
+}
+
+.upload-remove:hover {
+    background: #9b2a2a;
 }
 
 .upload-status {
-    display: block;
-    color: #667eea;
-    font-size: 0.85rem;
-    margin-top: 0.25rem;
-}
-
-.error-message {
-    background: #fff5f5;
-    color: #c53030;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-}
-
-.modal-actions {
     display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-    margin-top: 2rem;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-dark-60);
+    margin-top: var(--space-1);
 }
 
-.btn-cancel,
-.btn-submit {
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.95rem;
+.upload-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-emerald);
+    animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* ---- Ошибка ---- */
+.field-error-block {
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-danger-bg);
+    border: 1px solid rgba(185, 64, 64, 0.18);
+    border-radius: var(--radius-md);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
     font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
+}
+
+/* ---- Футер ---- */
+.modal-footer {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-6);
+    border-top: 1px solid rgba(28, 26, 23, 0.08);
+    flex-shrink: 0;
 }
 
 .btn-cancel {
-    background: #f7fafc;
-    border: 1px solid #e2e8f0;
-    color: #4a5568;
+    flex: 1;
+    padding: var(--space-3);
+    background: rgba(28, 26, 23, 0.06);
+    border: 1px solid rgba(28, 26, 23, 0.10);
+    border-radius: var(--radius-md);
+    color: var(--color-dark-60);
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
 }
 
 .btn-cancel:hover {
-    background: #edf2f7;
+    background: rgba(28, 26, 23, 0.10);
+    color: var(--color-dark);
 }
 
-.btn-submit {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.btn-confirm {
+    flex: 1;
+    padding: var(--space-3);
+    background: var(--color-dark);
     border: none;
-    color: white;
+    border-radius: var(--radius-md);
+    color: var(--color-bg);
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
 }
 
-.btn-submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.btn-confirm:hover:not(:disabled) {
+    background: #2d2b27;
+    box-shadow: 0 4px 16px rgba(28, 26, 23, 0.22);
 }
 
-.btn-submit:disabled {
-    opacity: 0.6;
+.btn-confirm:disabled {
+    opacity: 0.45;
     cursor: not-allowed;
+}
+
+.btn-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
 }
 
 @keyframes fadeIn {
@@ -408,12 +520,18 @@ textarea {
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
     }
 
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

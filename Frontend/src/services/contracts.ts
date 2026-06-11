@@ -1,6 +1,6 @@
 // services/contracts.service.ts
 import api from './api';
-import type { ContractResponse, ContractCreateByEmail } from '../types/contract';
+import type { ContractResponse, ContractCreateByEmail, ContractWithDetails } from '../types/contract';
 
 export const contractsService = {
     async getOwnerContracts(): Promise<ContractResponse[]> {
@@ -17,7 +17,6 @@ export const contractsService = {
         const { data } = await api.post<ContractResponse>('/contracts/by-email', payload);
         return data;
     },
-    // services/contracts.service.ts — добавьте
 
     async getTenantContracts(): Promise<ContractWithDetails[]> {
         const { data } = await api.get<ContractWithDetails[]>('/contracts/tenant/me');

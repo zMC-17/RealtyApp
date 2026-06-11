@@ -1,53 +1,86 @@
 <!-- pages/tenant/requests.vue -->
 <template>
-  <div class="tenant-requests">
-    <div class="page-header">
-      <h1>Заявки</h1>
-      <button v-if="activeContractId" class="btn-create" @click="showCreateModal = true">
-        + Создать заявку
-      </button>
-    </div>
+  <div class="content-page">
+    <div class="content-inner">
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Загрузка заявок...</p>
-    </div>
-
-    <div v-else-if="requests.length === 0" class="empty-state">
-      <div class="empty-icon">📝</div>
-      <h2>Заявок пока нет</h2>
-      <p v-if="activeContractId">Создайте заявку, если требуется обслуживание</p>
-      <p v-else>У вас нет активного договора</p>
-    </div>
-
-    <template v-else>
-      <!-- Активные заявки -->
-      <section v-if="activeRequests.length > 0" class="section">
-        <h2 class="section-title section-title--active">
-          <span>📋</span> Активные
-          <span class="count-badge count-badge--active">{{ activeRequests.length }}</span>
-        </h2>
-        <div class="requests-list">
-          <RequestCard v-for="req in activeRequests" :key="req.id" :request="req" :show-actions="false" />
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Обслуживание</p>
+          <h1 class="page-title">Заявки</h1>
         </div>
-      </section>
-
-      <!-- Завершённые -->
-      <section v-if="completedRequests.length > 0" class="section">
-        <button class="collapse-btn" @click="showCompleted = !showCompleted">
-          <span>{{ showCompleted ? '✅' : '▶️' }}</span>
-          Завершённые
-          <span class="count-badge count-badge--completed">{{ completedRequests.length }}</span>
+        <button v-if="activeContractId" class="btn-dark" @click="showCreateModal = true">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+          Новая заявка
         </button>
-        <div v-if="showCompleted" class="requests-list">
-          <RequestCard v-for="req in completedRequests" :key="req.id" :request="req" :show-actions="false" />
-        </div>
-      </section>
-    </template>
+      </header>
 
-    <CreateRequestModal v-if="showCreateModal" :visible="showCreateModal" :contract-id="activeContractId!"
-      @close="showCreateModal = false" @created="onRequestCreated" />
+      <!-- Лоадер -->
+      <div v-if="loading" class="loader-wrap">
+        <div class="loader-line"></div>
+        <p class="loader-label">Загрузка заявок…</p>
+      </div>
+
+      <!-- Пусто -->
+      <div v-else-if="requests.length === 0" class="empty-state">
+        <div class="empty-icon-box">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M17 3H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4l3 3 3-3h4a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"
+              stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+            <path d="M6 8h8M6 12h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          </svg>
+        </div>
+        <p class="empty-title">Заявок пока нет</p>
+        <p class="empty-text">
+          {{ activeContractId ? 'Создайте заявку, если требуется обслуживание объекта' : 'У вас нет активного договора'
+          }}
+        </p>
+        <button v-if="activeContractId" class="btn-dark" style="margin-top: var(--space-2)"
+          @click="showCreateModal = true">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+          Создать первую заявку
+        </button>
+      </div>
+
+      <template v-else>
+
+        <!-- Активные -->
+        <section v-if="activeRequests.length > 0" class="section">
+          <div class="section-head">
+            <h2 class="section-title">Активные</h2>
+            <span class="count-pill count-pill--danger">{{ activeRequests.length }}</span>
+          </div>
+          <div class="requests-list">
+            <RequestCard v-for="req in activeRequests" :key="req.id" :request="req" :show-actions="false" />
+          </div>
+        </section>
+
+        <!-- Завершённые — схлопываются -->
+        <section v-if="completedRequests.length > 0" class="section">
+          <button class="collapse-btn" @click="showCompleted = !showCompleted">
+            <span class="collapse-icon" :class="{ rotated: showCompleted }">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </span>
+            Завершённые и отменённые
+            <span class="count-pill count-pill--success">{{ completedRequests.length }}</span>
+          </button>
+          <div v-if="showCompleted" class="requests-list requests-list--collapsed">
+            <RequestCard v-for="req in completedRequests" :key="req.id" :request="req" :show-actions="false" />
+          </div>
+        </section>
+
+      </template>
+    </div>
   </div>
+
+  <CreateRequestModal v-if="showCreateModal" :visible="showCreateModal" :contract-id="activeContractId!"
+    @close="showCreateModal = false" @created="onRequestCreated" />
 </template>
 
 <script setup lang="ts">
@@ -65,154 +98,240 @@ const showCompleted = ref(false);
 const showCreateModal = ref(false);
 
 const activeContractId = computed(() => tenantStore.activeContract?.id || null);
+const activeRequests = computed(() => requests.value.filter(r => ['open', 'in_progress'].includes(r.status)));
+const completedRequests = computed(() => requests.value.filter(r => ['completed', 'cancelled'].includes(r.status)));
 
-const activeRequests = computed(() =>
-  requests.value.filter(r => r.status === 'open' || r.status === 'in_progress')
-);
-
-const completedRequests = computed(() =>
-  requests.value.filter(r => r.status === 'completed' || r.status === 'cancelled')
-);
-
-const loadRequests = async () => {
+async function loadRequests() {
   loading.value = true;
-  try {
-    requests.value = await requestsService.getTenantRequests();
-  } catch (err) {
-    console.error('Ошибка загрузки заявок:', err);
-  } finally {
-    loading.value = false;
-  }
-};
+  try { requests.value = await requestsService.getTenantRequests(); }
+  catch (err) { console.error(err); }
+  finally { loading.value = false; }
+}
 
-const onRequestCreated = () => {
+function onRequestCreated() {
   showCreateModal.value = false;
   loadRequests();
-};
+}
 
 onMounted(loadRequests);
 </script>
 
 <style scoped>
-.tenant-requests {
-  padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
 .page-header {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
+  margin-bottom: var(--space-8);
+}
+
+.page-eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dark-35);
+  margin-bottom: var(--space-1);
+}
+
+.page-title {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--color-dark);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.btn-dark {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  color: #1f2937;
-}
-
-.btn-create {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-dark);
+  color: var(--color-bg);
   border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all var(--transition);
 }
 
-.btn-create:hover {
+.btn-dark:hover {
+  background: #2d2b27;
+  box-shadow: 0 4px 16px rgba(28, 26, 23, 0.20);
   transform: translateY(-1px);
 }
 
-.section {
-  margin-bottom: 2rem;
+.btn-dark:active {
+  transform: translateY(0);
 }
 
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1rem;
-  margin: 0 0 1rem 0;
-}
-
-.section-title--active {
-  color: #dc2626;
-}
-
-.count-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 0.5rem;
-  background: #e5e7eb;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.count-badge--active {
-  background: #fecaca;
-  color: #dc2626;
-}
-
-.count-badge--completed {
-  background: #bbf7d0;
-  color: #16a34a;
-}
-
-.requests-list {
+/* ---- Лоадер ---- */
+.loader-wrap {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.collapse-btn {
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
+  gap: var(--space-4);
+  padding: var(--space-16);
 }
 
-.loading-state,
+.loader-line {
+  width: 160px;
+  height: 2px;
+  background: rgba(28, 26, 23, 0.10);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-emerald);
+  animation: loader 1.4s ease-in-out infinite;
+}
+
+@keyframes loader {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.loader-label {
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
+}
+
+/* ---- Пустое ---- */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4rem 2rem;
+  gap: var(--space-3);
+  padding: var(--space-16) var(--space-8);
   text-align: center;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e5e7eb;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.empty-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+  color: var(--color-dark-35);
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.empty-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-dark);
+  letter-spacing: -0.02em;
 }
 
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
+.empty-text {
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
+  max-width: 300px;
+}
+
+/* ---- Секции ---- */
+.section {
+  margin-bottom: var(--space-10);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dark-35);
+}
+
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 var(--space-2);
+  background: rgba(28, 26, 23, 0.08);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-dark-60);
+}
+
+.count-pill--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.count-pill--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+/* ---- Списки ---- */
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.requests-list--collapsed {
+  margin-top: var(--space-3);
+}
+
+/* ---- Схлопывание ---- */
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  border-radius: var(--radius-md);
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-dark-60);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.60);
+  color: var(--color-dark);
+}
+
+.collapse-icon {
+  display: flex;
+  align-items: center;
+  transition: transform var(--transition);
+  color: var(--color-dark-35);
+}
+
+.collapse-icon.rotated {
+  transform: rotate(180deg);
 }
 </style>

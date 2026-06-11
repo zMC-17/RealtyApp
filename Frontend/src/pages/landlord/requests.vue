@@ -1,58 +1,92 @@
 <!-- pages/landlord/requests.vue -->
 <template>
-  <div class="landlord-requests">
-    <div class="page-header">
-      <h1>Заявки от арендаторов</h1>
-      <button class="refresh-btn" @click="loadRequests" :disabled="loading">
-        🔄 Обновить
-      </button>
-    </div>
+  <div class="content-page">
+    <div class="content-inner">
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Загрузка заявок...</p>
-    </div>
-
-    <div v-else-if="requests.length === 0" class="empty-state">
-      <div class="empty-icon">📝</div>
-      <h2>Заявок пока нет</h2>
-      <p>Когда арендаторы создадут заявки, они появятся здесь</p>
-    </div>
-
-    <template v-else>
-      <!-- Активные (сгруппированы по объектам) -->
-      <section v-if="activeRequests.length > 0" class="section">
-        <h2 class="section-title section-title--active">
-          <span>📋</span> Активные
-          <span class="count-badge count-badge--active">{{ activeRequests.length }}</span>
-        </h2>
-
-        <div v-for="group in groupedActiveRequests" :key="group.propertyId" class="property-group">
-          <h3 class="group-title">
-            <span>🏠</span>
-            {{ group.propertyTitle }}
-            <span class="group-address">{{ group.propertyAddress }}</span>
-          </h3>
-          <div class="requests-list">
-            <RequestCard v-for="req in group.requests" :key="req.id" :request="req" :show-actions="true"
-              @status-change="handleStatusChange" />
-          </div>
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Обслуживание</p>
+          <h1 class="page-title">Заявки</h1>
         </div>
-      </section>
-
-      <!-- Завершённые -->
-      <section v-if="completedRequests.length > 0" class="section">
-        <button class="collapse-btn" @click="showCompleted = !showCompleted">
-          <span>{{ showCompleted ? '✅' : '▶️' }}</span>
-          Завершённые
-          <span class="count-badge count-badge--completed">{{ completedRequests.length }}</span>
+        <button class="btn-ghost" @click="loadRequests" :disabled="loading">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+            :style="{ animation: loading ? 'spin 1s linear infinite' : 'none' }">
+            <path d="M1.5 7A5.5 5.5 0 1 0 7 1.5a5.5 5.5 0 0 0-4.2 1.96" stroke="currentColor" stroke-width="1.4"
+              stroke-linecap="round" />
+            <path d="M1.5 1.5v3.5H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          Обновить
         </button>
-        <div v-if="showCompleted" class="requests-list">
-          <RequestCard v-for="req in completedRequests" :key="req.id" :request="req" :show-actions="true"
-            @status-change="handleStatusChange" />
+      </header>
+
+      <!-- Лоадер -->
+      <div v-if="loading" class="loader-wrap">
+        <div class="loader-line"></div>
+        <p class="loader-label">Загрузка заявок…</p>
+      </div>
+
+      <!-- Пусто -->
+      <div v-else-if="requests.length === 0" class="empty-state">
+        <div class="empty-icon-box">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M17 3H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4l3 3 3-3h4a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"
+              stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+            <path d="M6 8h8M6 12h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          </svg>
         </div>
-      </section>
-    </template>
+        <p class="empty-title">Заявок пока нет</p>
+        <p class="empty-text">Когда арендаторы создадут заявки, они появятся здесь</p>
+      </div>
+
+      <template v-else>
+
+        <!-- Активные — сгруппированы по объектам -->
+        <section v-if="activeRequests.length > 0" class="section">
+          <div class="section-head">
+            <h2 class="section-title">Активные</h2>
+            <span class="count-pill count-pill--danger">{{ activeRequests.length }}</span>
+          </div>
+
+          <!-- Группа по объекту -->
+          <div v-for="group in groupedActiveRequests" :key="group.propertyId" class="property-group">
+            <div class="group-header">
+              <svg width="12" height="13" viewBox="0 0 12 13" fill="none">
+                <path d="M1 6L6 1.5 11 6v5.5a.5.5 0 0 1-.5.5H8V9H4v3H1.5a.5.5 0 0 1-.5-.5V6Z" stroke="currentColor"
+                  stroke-width="1.2" stroke-linejoin="round" />
+              </svg>
+              <span class="group-title">{{ group.propertyTitle }}</span>
+              <span v-if="group.propertyAddress" class="group-address">{{ group.propertyAddress }}</span>
+              <span class="group-count">{{ group.requests.length }}</span>
+            </div>
+
+            <div class="requests-list">
+              <RequestCard v-for="req in group.requests" :key="req.id" :request="req" :show-actions="true"
+                @status-change="handleStatusChange" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Завершённые — схлопываются -->
+        <section v-if="completedRequests.length > 0" class="section">
+          <button class="collapse-btn" @click="showCompleted = !showCompleted">
+            <span class="collapse-icon" :class="{ rotated: showCompleted }">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </span>
+            Завершённые и отменённые
+            <span class="count-pill">{{ completedRequests.length }}</span>
+          </button>
+
+          <div v-if="showCompleted" class="requests-list requests-list--collapsed">
+            <RequestCard v-for="req in completedRequests" :key="req.id" :request="req" :show-actions="false" />
+          </div>
+        </section>
+
+      </template>
+    </div>
   </div>
 </template>
 
@@ -66,180 +100,133 @@ const requests = ref<RequestWithDetails[]>([]);
 const loading = ref(true);
 const showCompleted = ref(false);
 
-const activeRequests = computed(() =>
-  requests.value.filter(r => r.status === 'open' || r.status === 'in_progress')
-);
+const activeRequests = computed(() => requests.value.filter(r => ['open', 'in_progress'].includes(r.status)));
+const completedRequests = computed(() => requests.value.filter(r => ['completed', 'cancelled'].includes(r.status)));
 
-const completedRequests = computed(() =>
-  requests.value.filter(r => r.status === 'completed' || r.status === 'cancelled')
-);
-
-// Группировка активных по объектам
 const groupedActiveRequests = computed(() => {
   const groups = new Map<number, {
-    propertyId: number;
-    propertyTitle: string;
-    propertyAddress: string;
+    propertyId: number; propertyTitle: string; propertyAddress: string;
     requests: RequestWithDetails[];
   }>();
 
   for (const req of activeRequests.value) {
-    const propId = req.property_info?.id || 0;
-    if (!groups.has(propId)) {
-      groups.set(propId, {
-        propertyId: propId,
+    const id = req.property_info?.id ?? 0;
+    if (!groups.has(id)) {
+      groups.set(id, {
+        propertyId: id,
         propertyTitle: req.property_info?.title || '—',
         propertyAddress: req.property_info?.address || '',
         requests: [],
       });
     }
-    groups.get(propId)!.requests.push(req);
+    groups.get(id)!.requests.push(req);
   }
 
   return [...groups.values()];
 });
 
-const loadRequests = async () => {
+async function loadRequests() {
   loading.value = true;
-  try {
-    requests.value = await requestsService.getOwnerRequests();
-  } catch (err) {
-    console.error('Ошибка загрузки заявок:', err);
-  } finally {
-    loading.value = false;
-  }
-};
+  try { requests.value = await requestsService.getOwnerRequests(); }
+  catch (err) { console.error(err); }
+  finally { loading.value = false; }
+}
 
-const handleStatusChange = async (requestId: number, newStatus: string) => {
+async function handleStatusChange(requestId: number, newStatus: string) {
   await requestsService.updateRequestStatus(requestId, newStatus);
   loadRequests();
-};
+}
 
 onMounted(loadRequests);
 </script>
 
 <style scoped>
-.landlord-requests {
-  padding: 2rem;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
+/* ---- Шапка страницы ---- */
 .page-header {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-8);
 }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  color: #1f2937;
+.page-eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dark-35);
+  margin-bottom: var(--space-1);
 }
 
-.refresh-btn {
-  padding: 0.5rem 1rem;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
+.page-title {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--color-dark);
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.section {
-  margin-bottom: 2rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1rem;
-  margin: 0 0 1rem 0;
-}
-
-.section-title--active {
-  color: #dc2626;
-}
-
-.count-badge {
+.btn-ghost {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 0.5rem;
-  background: #e5e7eb;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.count-badge--active {
-  background: #fecaca;
-  color: #dc2626;
-}
-
-.count-badge--completed {
-  background: #bbf7d0;
-  color: #16a34a;
-}
-
-.property-group {
-  margin-bottom: 1.5rem;
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-}
-
-.group-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  color: #1f2937;
-}
-
-.group-address {
-  color: #6b7280;
-  font-size: 0.85rem;
-  margin-left: 0.5rem;
-}
-
-.requests-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.collapse-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 255, 255, 0.50);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: var(--radius-md);
+  color: var(--color-dark-60);
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
+  transition: all var(--transition);
+  backdrop-filter: blur(8px);
 }
 
-.loading-state,
-.empty-state {
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-dark);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Лоадер ---- */
+.loader-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4rem 2rem;
-  text-align: center;
+  gap: var(--space-4);
+  padding: var(--space-16);
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e5e7eb;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.loader-line {
+  width: 160px;
+  height: 2px;
+  background: rgba(28, 26, 23, 0.10);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-emerald);
+  animation: loader 1.4s ease-in-out infinite;
+}
+
+@keyframes loader {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
 }
 
 @keyframes spin {
@@ -248,8 +235,177 @@ onMounted(loadRequests);
   }
 }
 
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
+.loader-label {
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
+}
+
+/* ---- Пустое состояние ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-16) var(--space-8);
+  text-align: center;
+}
+
+.empty-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+  color: var(--color-dark-35);
+}
+
+.empty-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-dark);
+  letter-spacing: -0.02em;
+}
+
+.empty-text {
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
+  max-width: 300px;
+}
+
+/* ---- Секции ---- */
+.section {
+  margin-bottom: var(--space-10);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dark-35);
+}
+
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 var(--space-2);
+  background: rgba(28, 26, 23, 0.08);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-dark-60);
+}
+
+.count-pill--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* ---- Группа по объекту ---- */
+.property-group {
+  margin-bottom: var(--space-5);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-md);
+  color: var(--color-dark-35);
+}
+
+.group-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-dark);
+  letter-spacing: -0.01em;
+}
+
+.group-address {
+  font-size: var(--text-xs);
+  color: var(--color-dark-35);
+  flex: 1;
+  /* сдвигает каунт вправо */
+}
+
+.group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  background: rgba(28, 26, 23, 0.07);
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-dark-60);
+  margin-left: auto;
+}
+
+/* ---- Список заявок ---- */
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.requests-list--collapsed {
+  margin-top: var(--space-3);
+}
+
+/* ---- Кнопка схлопывания ---- */
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  border-radius: var(--radius-md);
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-dark-60);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.60);
+  color: var(--color-dark);
+}
+
+.collapse-icon {
+  display: flex;
+  align-items: center;
+  transition: transform var(--transition);
+  color: var(--color-dark-35);
+}
+
+.collapse-icon.rotated {
+  transform: rotate(180deg);
 }
 </style>

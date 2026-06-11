@@ -1,44 +1,54 @@
 <!-- components/payments/RequestConfirmationModal.vue -->
 <template>
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal-content">
+        <div class="modal-box">
+
             <div class="modal-header">
-                <h2>Подтверждение оплаты</h2>
-                <button class="modal-close" @click="$emit('close')">✕</button>
+                <span class="modal-title">Подтверждение оплаты</span>
+                <button class="modal-close" @click="$emit('close')">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" />
+                    </svg>
+                </button>
             </div>
 
             <div class="modal-body">
-                <div class="payment-info">
-                    <div class="info-row">
-                        <span>Сумма:</span>
-                        <strong>{{ formatCurrency(payment.amount) }}</strong>
-                    </div>
-                    <div class="info-row">
-                        <span>Дата платежа:</span>
-                        <strong>{{ formatDate(payment.due_date) }}</strong>
+
+                <!-- Сводка платежа -->
+                <div class="summary-block">
+                    <div class="summary-amount">{{ formatCurrency(payment.amount) }}</div>
+                    <div class="summary-row">
+                        <span class="summary-label">Дата платежа</span>
+                        <span class="summary-value">{{ formatDate(payment.due_date) }}</span>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="proofText">
+                <!-- Поле чека -->
+                <div class="field">
+                    <label class="field-label" for="proofText">
                         Ссылка на чек или комментарий *
                     </label>
-                    <textarea id="proofText" v-model="proofText" rows="4" required minlength="3" maxlength="2000"
+                    <textarea class="field-input field-textarea" id="proofText" v-model="proofText" rows="4" required
+                        minlength="3" maxlength="2000"
                         placeholder="Например: ссылка на чек в облаке или комментарий об оплате" />
-                    <span class="char-count">{{ proofText.length }}/2000</span>
+                    <span class="field-hint">{{ proofText.length }} / 2000</span>
                 </div>
 
-                <div v-if="error" class="error-message">{{ error }}</div>
+                <div v-if="error" class="notice notice--danger">{{ error }}</div>
+
             </div>
 
-            <div class="modal-actions">
+            <div class="modal-footer">
                 <button class="btn-cancel" @click="$emit('close')" :disabled="sending">
                     Отмена
                 </button>
-                <button class="btn-submit" :disabled="!canSubmit || sending" @click="handleSubmit">
-                    {{ sending ? 'Отправка...' : 'Отправить на проверку' }}
+                <button class="btn-confirm" :disabled="!canSubmit || sending" @click="handleSubmit">
+                    <span v-if="sending" class="btn-spinner"></span>
+                    {{ sending ? 'Отправка…' : 'Отправить на проверку' }}
                 </button>
             </div>
+
         </div>
     </div>
 </template>
@@ -48,15 +58,8 @@ import { ref, computed } from 'vue';
 import { paymentsService } from '../../services/payments';
 import type { PaymentResponse } from '../../types/payment';
 
-const props = defineProps<{
-    visible: boolean;
-    payment: PaymentResponse;
-}>();
-
-const emit = defineEmits<{
-    close: [];
-    sent: [];
-}>();
+const props = defineProps<{ visible: boolean; payment: PaymentResponse }>();
+const emit = defineEmits<{ close: []; sent: [] }>();
 
 const proofText = ref('');
 const sending = ref(false);
@@ -66,16 +69,13 @@ const canSubmit = computed(() => proofText.value.trim().length >= 3);
 
 const handleSubmit = async () => {
     if (!canSubmit.value) return;
-
     sending.value = true;
     error.value = '';
-
     try {
         await paymentsService.requestConfirmation(props.payment.id, {
             payment_proof_url: proofText.value.trim(),
             comment: proofText.value.trim(),
         });
-
         emit('sent');
     } catch (err: any) {
         error.value = err.response?.data?.detail || 'Ошибка отправки';
@@ -86,179 +86,255 @@ const handleSubmit = async () => {
 
 const formatCurrency = (v: string) =>
     new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB',
+        style: 'currency', currency: 'RUB', minimumFractionDigits: 0,
     }).format(parseFloat(v));
 
-const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
+const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 </script>
 
 <style scoped>
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(28, 26, 23, 0.40);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fadeIn 0.2s ease;
+    animation: fadeIn 180ms ease;
 }
 
-.modal-content {
-    background: white;
-    border-radius: 12px;
+.modal-box {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.80);
+    border-radius: var(--radius-xl);
     width: 90%;
-    max-width: 480px;
+    max-width: 460px;
     max-height: 90vh;
-    overflow-y: auto;
-    animation: slideUp 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 24px 60px rgba(28, 26, 23, 0.16);
+    animation: slideUp 220ms ease;
+    overflow: hidden;
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    border-bottom: 1px solid rgba(28, 26, 23, 0.08);
+    flex-shrink: 0;
 }
 
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: #1f2937;
+.modal-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--color-dark);
+    letter-spacing: -0.02em;
 }
 
 .modal-close {
-    background: none;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
     border: none;
-    font-size: 1.5rem;
-    color: #6b7280;
+    background: rgba(28, 26, 23, 0.06);
+    color: var(--color-dark-60);
     cursor: pointer;
-    padding: 0.25rem;
-    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
 }
 
 .modal-close:hover {
-    color: #1f2937;
+    background: rgba(28, 26, 23, 0.12);
+    color: var(--color-dark);
 }
 
 .modal-body {
-    padding: 1.5rem;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    overflow-y: auto;
+    flex: 1;
 }
 
-.payment-info {
-    background: #f9fafb;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
+/* ---- Сводка ---- */
+.summary-block {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
 }
 
-.info-row {
+.summary-amount {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--color-emerald);
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 0.375rem 0;
-    color: #374151;
+    align-items: baseline;
+    gap: var(--space-4);
 }
 
-.info-row strong {
-    color: #1f2937;
+.summary-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-dark-35);
 }
 
-.form-group {
-    margin-bottom: 1.25rem;
+.summary-value {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-dark);
 }
 
-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #374151;
-    font-size: 0.9rem;
+/* ---- Поле ---- */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-textarea {
+.field-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-dark-35);
+}
+
+.field-input {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(28, 26, 23, 0.12);
+    border-radius: var(--radius-md);
+    color: var(--color-dark);
+    font-family: var(--font-base);
+    font-size: var(--text-base);
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.field-input::placeholder {
+    color: var(--color-dark-35);
+}
+
+.field-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.90);
+    border-color: var(--color-emerald-20);
+    box-shadow: 0 0 0 3px var(--color-emerald-08);
+}
+
+.field-textarea {
     resize: vertical;
     min-height: 100px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    box-sizing: border-box;
 }
 
-textarea:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.char-count {
-    display: block;
+.field-hint {
+    font-size: var(--text-xs);
+    color: var(--color-dark-35);
     text-align: right;
-    color: #9ca3af;
-    font-size: 0.8rem;
-    margin-top: 0.25rem;
 }
 
-.error-message {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: flex-end;
-    margin-top: 1.5rem;
-}
-
-.btn-cancel,
-.btn-submit {
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.95rem;
+.notice--danger {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    border: 1px solid rgba(185, 64, 64, 0.18);
+    font-size: var(--text-sm);
     font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
+}
+
+/* ---- Футер ---- */
+.modal-footer {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-6);
+    border-top: 1px solid rgba(28, 26, 23, 0.08);
+    flex-shrink: 0;
 }
 
 .btn-cancel {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    color: #374151;
+    flex: 1;
+    padding: var(--space-3);
+    background: rgba(28, 26, 23, 0.06);
+    border: 1px solid rgba(28, 26, 23, 0.10);
+    border-radius: var(--radius-md);
+    color: var(--color-dark-60);
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
 }
 
 .btn-cancel:hover:not(:disabled) {
-    background: #e5e7eb;
+    background: rgba(28, 26, 23, 0.10);
+    color: var(--color-dark);
 }
 
-.btn-submit {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    color: white;
-}
-
-.btn-submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-submit:disabled,
 .btn-cancel:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+}
+
+.btn-confirm {
+    flex: 1;
+    padding: var(--space-3);
+    background: var(--color-emerald);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    letter-spacing: -0.01em;
+}
+
+.btn-confirm:hover:not(:disabled) {
+    background: #155c3e;
+    box-shadow: 0 4px 16px rgba(26, 107, 74, 0.30);
+}
+
+.btn-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
 }
 
 @keyframes fadeIn {
@@ -274,12 +350,18 @@ textarea:focus {
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
     }
 
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

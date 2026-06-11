@@ -1,130 +1,116 @@
 <!-- components/tenant/PendingContractCard.vue -->
 <template>
-    <div class="pending-card">
-        <div class="pending-card__body">
-            <div class="info-row">
-                <span class="info-icon">🏠</span>
-                <div>
-                    <span class="info-label">Объект</span>
-                    <strong>{{ contract.property_info?.title || '—' }}</strong>
-                    <p class="info-sub">{{ contract.property_info?.address }}</p>
-                </div>
-            </div>
+  <div class="pending-card">
+    <div class="card-body">
 
-            <div class="info-row">
-                <span class="info-icon">👤</span>
-                <div>
-                    <span class="info-label">Владелец</span>
-                    <strong>{{ contract.owner_info?.name || '—' }}</strong>
-                    <p class="info-sub">{{ contract.owner_info?.email }}</p>
-                </div>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Период</span>
-                    <strong>{{ formatDate(contract.start_date) }} — {{ formatDate(contract.end_date) }}</strong>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Ежемесячный платёж</span>
-                    <strong class="amount">{{ formatCurrency(contract.monthly_payment) }}</strong>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Депозит</span>
-                    <strong>{{ formatCurrency(contract.security_deposit) }}</strong>
-                </div>
-            </div>
+      <div class="info-grid">
+        <div class="info-block">
+          <span class="info-label">Объект</span>
+          <span class="info-value">{{ contract.property_info?.title || '—' }}</span>
+          <span class="info-sub">{{ contract.property_info?.address }}</span>
         </div>
-
-        <div class="pending-card__actions">
-            <button class="btn-confirm" @click="$emit('confirm', contract.id)">
-                ✅ Принять договор
-            </button>
+        <div class="info-block">
+          <span class="info-label">Владелец</span>
+          <span class="info-value">{{ contract.owner_info?.name || '—' }}</span>
+          <span class="info-sub">{{ contract.owner_info?.email }}</span>
         </div>
+      </div>
+
+      <div class="meta-row">
+        <div class="meta-item">
+          <span class="info-label">Период</span>
+          <span class="info-value">{{ formatDate(contract.start_date) }} — {{ formatDate(contract.end_date) }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="info-label">Платёж / мес</span>
+          <span class="info-value info-value--amount">{{ formatCurrency(contract.monthly_payment) }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="info-label">Депозит</span>
+          <span class="info-value">{{ formatCurrency(contract.security_deposit) }}</span>
+        </div>
+      </div>
+
     </div>
+
+    <div class="card-footer">
+      <button class="btn-confirm" @click="$emit('confirm', contract.id)">
+        Принять договор
+      </button>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import type { ContractWithDetails } from '../../types/contract';
-
 defineProps<{ contract: ContractWithDetails }>();
 defineEmits<{ confirm: [contractId: number] }>();
-
-const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
+const formatDate     = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 const formatCurrency = (v: string) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(parseFloat(v));
+  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(parseFloat(v));
 </script>
 
 <style scoped>
 .pending-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid rgba(255,255,255,0.70);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.70) inset, 0 4px 20px rgba(28,26,23,0.06);
 }
 
-.pending-card__body {
-    padding: 1.5rem;
-}
-
-.info-row {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.info-icon {
-    font-size: 1.5rem;
-    flex-shrink: 0;
-}
-
-.info-label {
-    display: block;
-    font-size: 0.75rem;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.info-sub {
-    margin: 0.125rem 0 0 0;
-    color: #6b7280;
-    font-size: 0.875rem;
+.card-body {
+  padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-4);
 }
 
 .info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-top: 1rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);
 }
 
-.amount {
-    color: #059669;
+.info-block {
+  display: flex; flex-direction: column; gap: 2px;
 }
 
-.pending-card__actions {
-    padding: 1rem 1.5rem;
-    background: #f9fafb;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    gap: 0.75rem;
+.meta-row {
+  display: flex; gap: var(--space-6); flex-wrap: wrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(28,26,23,0.08);
+}
+
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+
+.info-label {
+  font-size: var(--text-xs); font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dark-35);
+}
+.info-value { font-size: var(--text-sm); font-weight: 600; color: var(--color-dark); }
+.info-value--amount {
+  font-size: var(--text-md); font-weight: 800;
+  color: var(--color-emerald); letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.info-sub { font-size: var(--text-xs); color: var(--color-dark-35); }
+
+.card-footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid rgba(28,26,23,0.08);
+  background: rgba(26,107,74,0.04);
 }
 
 .btn-confirm {
-    flex: 1;
-    padding: 0.75rem;
-    background: #10b981;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
+  width: 100%; padding: var(--space-3);
+  background: var(--color-emerald); color: #fff;
+  border: none; border-radius: var(--radius-md);
+  font-family: var(--font-base); font-size: var(--text-sm);
+  font-weight: 700; cursor: pointer; transition: all var(--transition);
+  letter-spacing: -0.01em;
 }
-
 .btn-confirm:hover {
-    background: #059669;
+  background: #155c3e;
+  box-shadow: 0 4px 16px rgba(26,107,74,0.30);
+  transform: translateY(-1px);
 }
+.btn-confirm:active { transform: translateY(0); }
 </style>

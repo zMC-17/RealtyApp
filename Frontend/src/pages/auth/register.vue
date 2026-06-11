@@ -1,75 +1,54 @@
 <!-- pages/auth/register.vue -->
 <template>
-  <div class="register-page">
-    <h2>Регистрация</h2>
+  <div class="auth-card">
 
-    <form @submit.prevent="handleRegister">
-      <div class="form-group">
-        <label for="name">Имя</label>
-        <input
-          id="name"
-          v-model="name"
-          type="text"
-          required
-          placeholder="Иван Петров"
-          minlength="2"
-          maxlength="50"
-        />
+    <div class="auth-head">
+      <h1 class="auth-title">Создать аккаунт</h1>
+      <p class="auth-sub">Зарегистрируйтесь, чтобы начать</p>
+    </div>
+
+    <form @submit.prevent="handleRegister" class="auth-form">
+      <div class="field">
+        <label class="field-label" for="name">Имя</label>
+        <input class="field-input" id="name" v-model="name" type="text" required placeholder="Иван Петров" minlength="2"
+          maxlength="50" autocomplete="name" />
       </div>
 
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input
-          id="email"
-          v-model="email"
-          type="email"
-          required
-          placeholder="ivan@example.com"
-        />
+      <div class="field">
+        <label class="field-label" for="email">Email</label>
+        <input class="field-input" id="email" v-model="email" type="email" required placeholder="ivan@example.com"
+          autocomplete="email" />
       </div>
 
-      <div class="form-group">
-        <label for="password">Пароль</label>
-        <input
-          id="password"
-          v-model="password"
-          type="password"
-          required
-          placeholder="Минимум 8 символов"
-          minlength="8"
-        />
+      <div class="field">
+        <label class="field-label" for="password">Пароль</label>
+        <input class="field-input" id="password" v-model="password" type="password" required
+          placeholder="Минимум 8 символов" minlength="8" autocomplete="new-password" />
       </div>
 
-      <div class="form-group">
-        <label for="confirmPassword">Подтверждение пароля</label>
-        <input
-          id="confirmPassword"
-          v-model="confirmPassword"
-          type="password"
-          required
-          placeholder="Повторите пароль"
-        />
-        <span v-if="passwordMismatch" class="validation-error">
-          Пароли не совпадают
-        </span>
+      <div class="field">
+        <label class="field-label" for="confirmPassword">Подтверждение</label>
+        <input class="field-input" id="confirmPassword" :class="{ 'field-input--error': passwordMismatch }"
+          v-model="confirmPassword" type="password" required placeholder="Повторите пароль"
+          autocomplete="new-password" />
+        <span v-if="passwordMismatch" class="field-error">Пароли не совпадают</span>
       </div>
 
-      <div v-if="authStore.error" class="error-message">
+      <div v-if="authStore.error" class="auth-error">
         {{ authStore.error }}
       </div>
 
-      <button
-        type="submit"
-        :disabled="authStore.loading || passwordMismatch"
-      >
-        {{ authStore.loading ? 'Регистрация...' : 'Зарегистрироваться' }}
+      <button class="auth-submit" type="submit" :disabled="authStore.loading || passwordMismatch">
+        <span v-if="authStore.loading" class="submit-spinner"></span>
+        {{ authStore.loading ? 'Создаём аккаунт…' : 'Зарегистрироваться' }}
       </button>
-
-      <p class="login-link">
-        Уже есть аккаунт?
-        <router-link to="/auth/login">Войти</router-link>
-      </p>
     </form>
+
+    <p class="auth-footer-link">
+      Уже есть аккаунт?
+      <router-link to="/auth/login">Войти</router-link>
+    </p>
+
   </div>
 </template>
 
@@ -86,124 +65,177 @@ const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 
-// Проверка совпадения паролей
-const passwordMismatch = computed(() => {
-  return confirmPassword.value.length > 0 && password.value !== confirmPassword.value;
-});
+const passwordMismatch = computed(() =>
+  confirmPassword.value.length > 0 && password.value !== confirmPassword.value
+);
 
 const handleRegister = async () => {
-  // Дополнительная проверка перед отправкой
-  if (password.value !== confirmPassword.value) {
-    return;
-  }
-
+  if (passwordMismatch.value) return;
   authStore.clearError();
-
-  const success = await authStore.register({
-    name: name.value,
-    email: email.value,
-    password: password.value,
-  });
-
-  if (success) {
-    // После успешной регистрации перенаправляем на главную
-    router.push({ name: 'LandlordProperties' });
-  }
+  const success = await authStore.register({ name: name.value, email: email.value, password: password.value });
+  if (success) router.push({ name: 'LandlordProperties' });
 };
 </script>
 
 <style scoped>
-.register-page {
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.auth-card {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.8) inset,
+    0 16px 48px rgba(28, 26, 23, 0.14),
+    0 4px 12px rgba(28, 26, 23, 0.08);
 }
 
-h2 {
-  text-align: center;
-  margin-bottom: 2rem;
-  color: #333;
+.auth-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.form-group {
-  margin-bottom: 1.5rem;
+.auth-title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-dark);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-label {
-  display: block;
-  margin-bottom: 0.5rem;
+.auth-sub {
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
   font-weight: 500;
-  color: #555;
 }
 
-input {
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-input {
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.70);
+  border: 1px solid rgba(28, 26, 23, 0.12);
+  border-radius: var(--radius-md);
+  color: var(--color-dark);
+  font-family: var(--font-base);
+  font-size: var(--text-base);
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  transition: border-color 0.3s;
 }
 
-input:focus {
+.field-input::placeholder {
+  color: var(--color-dark-35);
+}
+
+.field-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  background: rgba(255, 255, 255, 0.90);
+  border-color: var(--color-emerald-20);
+  box-shadow: 0 0 0 3px var(--color-emerald-08);
 }
 
-.validation-error {
-  display: block;
-  color: #e74c3c;
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
+.field-input--error {
+  border-color: rgba(185, 64, 64, 0.40) !important;
+  box-shadow: 0 0 0 3px var(--color-danger-bg) !important;
 }
 
-.error-message {
-  background: #fee;
-  color: #c0392b;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
+.field-error {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  font-weight: 600;
 }
 
-button {
+.auth-submit {
   width: 100%;
-  padding: 0.875rem;
-  background: #667eea;
-  color: white;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-dark);
+  color: var(--color-bg);
   border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
+  border-radius: var(--radius-md);
+  font-family: var(--font-base);
+  font-size: var(--text-base);
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  letter-spacing: -0.01em;
 }
 
-button:hover:not(:disabled) {
-  background: #5a6fd6;
+.auth-submit:hover:not(:disabled) {
+  background: #2d2b27;
+  box-shadow: 0 4px 16px rgba(28, 26, 23, 0.20);
+  transform: translateY(-1px);
 }
 
-button:disabled {
-  background: #b3b3b3;
+.auth-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.auth-submit:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-.login-link {
+.submit-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.30);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.auth-error {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(185, 64, 64, 0.20);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.auth-footer-link {
   text-align: center;
-  margin-top: 1.5rem;
-  color: #666;
+  font-size: var(--text-sm);
+  color: var(--color-dark-35);
+  font-weight: 500;
 }
 
-.login-link a {
-  color: #667eea;
+.auth-footer-link a {
+  color: var(--color-emerald);
+  font-weight: 700;
   text-decoration: none;
+  transition: opacity var(--transition);
 }
 
-.login-link a:hover {
-  text-decoration: underline;
+.auth-footer-link a:hover {
+  opacity: 0.75;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

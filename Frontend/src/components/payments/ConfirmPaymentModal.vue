@@ -1,54 +1,64 @@
 <!-- components/payments/ConfirmPaymentModal.vue -->
 <template>
     <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal-content">
+        <div class="modal-box">
+
             <div class="modal-header">
-                <h2>Подтверждение платежа</h2>
-                <button class="modal-close" @click="$emit('close')">✕</button>
-            </div>
-
-            <div class="modal-body">
-                <div class="warning-message">
-                    ⚠️ Вы подтверждаете получение оплаты. Это действие отметит платёж как выполненный.
-                </div>
-
-                <div v-if="payment" class="payment-summary">
-                    <div class="summary-row">
-                        <span>Сумма:</span>
-                        <strong>{{ formattedAmount }}</strong>
-                    </div>
-                    <div class="summary-row">
-                        <span>Объект:</span>
-                        <strong>{{ payment.property_info?.title }}</strong>
-                    </div>
-                    <div class="summary-row">
-                        <span>Арендатор:</span>
-                        <strong>{{ payment.tenant_info?.name }}</strong>
-                    </div>
-                    <div class="summary-row">
-                        <span>Дата платежа:</span>
-                        <strong>{{ formattedDate }}</strong>
-                    </div>
-                </div>
-
-                <div v-if="payment?.payment_proof_url" class="proof-section">
-                    <div v-if="payment.payment_proof_url" class="proof-text">
-                        <span class="proof-label">Чек/Комментарий:</span>
-                        <p class="proof-content">{{ payment.payment_proof_url }}</p>
-                    </div>
-                </div>
-
-                <div v-if="paymentsStore.error" class="error-message">
-                    {{ paymentsStore.error }}
-                </div>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn-cancel" @click="$emit('close')">Отмена</button>
-                <button class="btn-confirm" @click="handleConfirm" :disabled="paymentsStore.loading">
-                    {{ paymentsStore.loading ? 'Подтверждение...' : 'Подтвердить оплату' }}
+                <span class="modal-title">Подтверждение платежа</span>
+                <button class="modal-close" @click="$emit('close')">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" />
+                    </svg>
                 </button>
             </div>
+
+            <div class="modal-body" v-if="payment">
+
+                <!-- Предупреждение -->
+                <div class="notice notice--warning">
+                    Вы подтверждаете получение оплаты. Платёж будет отмечен как выполненный — действие необратимо.
+                </div>
+
+                <!-- Сводка -->
+                <div class="summary-block">
+                    <div class="summary-amount">{{ formattedAmount }}</div>
+                    <div class="summary-rows">
+                        <div class="summary-row">
+                            <span class="summary-label">Объект</span>
+                            <span class="summary-value">{{ payment.property_info?.title || '—' }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Арендатор</span>
+                            <span class="summary-value">{{ payment.tenant_info?.name || '—' }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Дата платежа</span>
+                            <span class="summary-value">{{ formattedDate }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Чек/комментарий арендатора -->
+                <div v-if="payment.payment_proof_url" class="proof-block">
+                    <span class="summary-label">Чек / комментарий арендатора</span>
+                    <p class="proof-text">{{ payment.payment_proof_url }}</p>
+                </div>
+
+                <div v-if="paymentsStore.error" class="notice notice--danger">
+                    {{ paymentsStore.error }}
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" @click="$emit('close')">Отмена</button>
+                <button class="btn-confirm" @click="handleConfirm" :disabled="paymentsStore.loading">
+                    <span v-if="paymentsStore.loading" class="btn-spinner"></span>
+                    {{ paymentsStore.loading ? 'Подтверждение…' : 'Подтвердить оплату' }}
+                </button>
+            </div>
+
         </div>
     </div>
 </template>
@@ -58,191 +68,271 @@ import { computed } from 'vue';
 import { usePaymentsStore } from '../../stores/payments';
 import type { PaymentResponse } from '../../types/payment';
 
-const props = defineProps<{
-    visible: boolean;
-    payment: PaymentResponse | null;
-}>();
-
-const emit = defineEmits<{
-    close: [];
-    confirmed: [];
-}>();
-
+const props = defineProps<{ visible: boolean; payment: PaymentResponse | null }>();
+const emit = defineEmits<{ close: []; confirmed: [] }>();
 const paymentsStore = usePaymentsStore();
 
-const formattedAmount = computed(() => {
-    if (!props.payment) return '';
-    const amount = parseFloat(props.payment.amount);
-    return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB',
-    }).format(amount);
-});
-
-const formattedDate = computed(() => {
-    if (!props.payment) return '';
-    return new Date(props.payment.due_date).toLocaleDateString('ru-RU');
-});
+const formattedAmount = computed(() => props.payment
+    ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(parseFloat(props.payment.amount))
+    : ''
+);
+const formattedDate = computed(() => props.payment
+    ? new Date(props.payment.due_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : ''
+);
 
 const handleConfirm = async () => {
     if (!props.payment) return;
-
     const success = await paymentsStore.confirmPayment(props.payment.id);
-    if (success) {
-        emit('confirmed');
-        emit('close');
-    }
+    if (success) { emit('confirmed'); emit('close'); }
 };
 </script>
 
 <style scoped>
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(28, 26, 23, 0.40);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    animation: fadeIn 180ms ease;
 }
 
-.modal-content {
-    background: white;
-    border-radius: 12px;
+.modal-box {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.80);
+    border-radius: var(--radius-xl);
     width: 90%;
-    max-width: 480px;
-    animation: slideUp 0.3s ease;
+    max-width: 460px;
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 24px 60px rgba(28, 26, 23, 0.16);
+    animation: slideUp 220ms ease;
+    overflow: hidden;
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    border-bottom: 1px solid rgba(28, 26, 23, 0.08);
 }
 
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
+.modal-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--color-dark);
+    letter-spacing: -0.02em;
 }
 
 .modal-close {
-    background: none;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
     border: none;
-    font-size: 1.5rem;
+    background: rgba(28, 26, 23, 0.06);
+    color: var(--color-dark-60);
     cursor: pointer;
-    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+}
+
+.modal-close:hover {
+    background: rgba(28, 26, 23, 0.12);
+    color: var(--color-dark);
 }
 
 .modal-body {
-    padding: 1.5rem;
-}
-
-.warning-message {
-    padding: 0.75rem;
-    background: #fef3c7;
-    border: 1px solid #fbbf24;
-    border-radius: 8px;
-    color: #92400e;
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-}
-
-.payment-summary {
+    padding: var(--space-6);
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    gap: var(--space-5);
+}
+
+/* ---- Notice ---- */
+.notice {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.notice--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+    border: 1px solid rgba(184, 115, 51, 0.18);
+}
+
+.notice--danger {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    border: 1px solid rgba(185, 64, 64, 0.18);
+}
+
+/* ---- Сводка ---- */
+.summary-block {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.summary-amount {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--color-emerald);
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
 .summary-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    color: #374151;
+    align-items: baseline;
+    gap: var(--space-4);
 }
 
-.proof-section {
-    padding: 1rem;
-    background: #f3f4f6;
-    border-radius: 8px;
-    margin-bottom: 1rem;
+.summary-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-dark-35);
+    flex-shrink: 0;
 }
 
-.proof-section h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
+.summary-value {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-dark);
+    text-align: right;
 }
 
-.proof-link {
-    color: #3b82f6;
-    text-decoration: none;
-}
-
-.proof-link:hover {
-    text-decoration: underline;
-}
-
-.error-message {
-    padding: 0.75rem;
-    background: #fee2e2;
-    color: #991b1b;
-    border-radius: 8px;
-    font-size: 0.875rem;
-}
-
-.modal-actions {
+/* ---- Чек ---- */
+.proof-block {
     display: flex;
-    gap: 0.75rem;
-    padding: 1.5rem;
-    border-top: 1px solid #e5e7eb;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-.btn-cancel,
-.btn-confirm {
-    flex: 1;
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
+.proof-text {
+    font-size: var(--text-sm);
+    color: var(--color-dark-60);
+    line-height: 1.55;
+    word-break: break-word;
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+/* ---- Футер ---- */
+.modal-footer {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-6);
+    border-top: 1px solid rgba(28, 26, 23, 0.08);
 }
 
 .btn-cancel {
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #374151;
+    flex: 1;
+    padding: var(--space-3);
+    background: rgba(28, 26, 23, 0.06);
+    border: 1px solid rgba(28, 26, 23, 0.10);
+    border-radius: var(--radius-md);
+    color: var(--color-dark-60);
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.btn-cancel:hover {
+    background: rgba(28, 26, 23, 0.10);
+    color: var(--color-dark);
 }
 
 .btn-confirm {
-    background: #10b981;
+    flex: 1;
+    padding: var(--space-3);
+    background: var(--color-emerald);
     border: none;
-    color: white;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-family: var(--font-base);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    letter-spacing: -0.01em;
 }
 
 .btn-confirm:hover:not(:disabled) {
-    background: #059669;
+    background: #155c3e;
+    box-shadow: 0 4px 16px rgba(26, 107, 74, 0.30);
 }
 
 .btn-confirm:disabled {
-    opacity: 0.6;
+    opacity: 0.45;
     cursor: not-allowed;
+}
+
+.btn-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
     }
 
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

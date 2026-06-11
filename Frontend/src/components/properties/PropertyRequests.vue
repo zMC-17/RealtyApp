@@ -1,83 +1,54 @@
 <!-- components/properties/PropertyRequests.vue -->
 <template>
     <div class="property-requests">
-        <div v-if="loading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Загрузка заявок...</p>
+
+        <div v-if="loading" class="loader-wrap">
+            <div class="loader-line"></div>
+            <p class="loader-label">Загрузка заявок…</p>
         </div>
 
         <div v-else-if="sortedRequests.length === 0" class="empty-state">
-            <p>Заявок пока нет</p>
+            <div class="empty-icon-box">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M17 3H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4l3 3 3-3h4a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z"
+                        stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+                    <path d="M6 8h8M6 12h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                </svg>
+            </div>
+            <p class="empty-title">Заявок пока нет</p>
+            <p class="empty-text">Заявки от арендатора появятся здесь</p>
         </div>
 
         <div v-else class="requests-list">
-            <div v-for="request in sortedRequests" :key="request.id" class="request-card"
-                :class="`request-card--${request.status}`">
-                <div class="request-header">
-                    <h4 class="request-title">{{ request.title || 'Без названия' }}</h4>
-                    <span class="request-status-badge" :style="{ backgroundColor: statusColor(request.status) }">
-                        {{ statusLabel(request.status) }}
-                    </span>
-                </div>
-
-                <p class="request-message">{{ request.message }}</p>
-
-                <div class="request-footer">
-                    <span class="request-id">#{{ request.id }}</span>
-
-                    <!-- Выпадающий список статусов (как на общей странице) -->
-                    <select v-if="canChangeStatus(request.status)" class="status-select" :value="request.status"
-                        @change="updateStatus(request.id, ($event.target as HTMLSelectElement).value)">
-                        <option value="open">Открыта</option>
-                        <option value="in_progress">В работе</option>
-                        <option value="completed">Выполнена</option>
-                        <option value="cancelled">Отменена</option>
-                    </select>
-                </div>
-            </div>
+            <RequestCard v-for="request in sortedRequests" :key="request.id" :request="request" :show-actions="true"
+                @status-change="updateStatus" />
         </div>
+
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { requestsService } from '../../services/requests';
-import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from '../../types/request';
-import type { RequestResponse, RequestStatus } from '../../types/request';
+import type { RequestResponse } from '../../types/request';
+import RequestCard from '../requests/RequestCard.vue';
 
 const props = defineProps<{ contractId: number }>();
 
 const requests = ref<RequestResponse[]>([]);
 const loading = ref(true);
 
-// Открытые и в работе сверху, выполненные и отменённые снизу
 const sortedRequests = computed(() => {
-    const active = requests.value.filter(r => r.status === 'open' || r.status === 'in_progress');
-    const closed = requests.value.filter(r => r.status === 'completed' || r.status === 'cancelled');
+    const active = requests.value.filter(r => ['open', 'in_progress'].includes(r.status));
+    const closed = requests.value.filter(r => ['completed', 'cancelled'].includes(r.status));
     return [...active, ...closed];
 });
 
-const canChangeStatus = (status: string) => {
-    return status !== 'completed' && status !== 'cancelled';
-};
-
-const statusLabel = (status: string) => {
-    return REQUEST_STATUS_LABELS[status as RequestStatus] || status;
-};
-
-const statusColor = (status: string) => {
-    return REQUEST_STATUS_COLORS[status as RequestStatus] || '#6b7280';
-};
-
 const loadRequests = async () => {
     loading.value = true;
-    try {
-        requests.value = await requestsService.getContractRequests(props.contractId);
-    } catch (err) {
-        console.error('Ошибка загрузки заявок:', err);
-    } finally {
-        loading.value = false;
-    }
+    try { requests.value = await requestsService.getContractRequests(props.contractId); }
+    catch (err) { console.error(err); }
+    finally { loading.value = false; }
 };
 
 const updateStatus = async (requestId: number, newStatus: string) => {
@@ -92,123 +63,87 @@ onMounted(loadRequests);
 .property-requests {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--space-3);
+}
+
+.loader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-12);
+}
+
+.loader-line {
+    width: 120px;
+    height: 2px;
+    background: rgba(28, 26, 23, 0.10);
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+}
+
+.loader-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--color-emerald);
+    animation: loader 1.4s ease-in-out infinite;
+}
+
+@keyframes loader {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(200%);
+    }
+}
+
+.loader-label {
+    font-size: var(--text-sm);
+    color: var(--color-dark-35);
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-12) var(--space-8);
+    text-align: center;
+}
+
+.empty-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.52);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-2);
+    color: var(--color-dark-35);
+}
+
+.empty-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--color-dark);
+    letter-spacing: -0.02em;
+}
+
+.empty-text {
+    font-size: var(--text-sm);
+    color: var(--color-dark-35);
 }
 
 .requests-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-}
-
-.request-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #e5e7eb;
-}
-
-.request-card--open {
-    border-left-color: #ef4444;
-}
-
-.request-card--in_progress {
-    border-left-color: #f59e0b;
-}
-
-.request-card--completed {
-    border-left-color: #10b981;
-    opacity: 0.7;
-    background: #f9fafb;
-}
-
-.request-card--cancelled {
-    border-left-color: #6b7280;
-    opacity: 0.6;
-    background: #f9fafb;
-}
-
-.request-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-.request-title {
-    margin: 0;
-    font-size: 1rem;
-    color: #1f2937;
-}
-
-.request-status-badge {
-    display: inline-block;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    color: white;
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.request-message {
-    margin: 0 0 0.75rem 0;
-    color: #4b5563;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-.request-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.request-id {
-    font-size: 0.75rem;
-    color: #9ca3af;
-}
-
-.status-select {
-    padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    background: white;
-    cursor: pointer;
-    color: #374151;
-}
-
-.status-select:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.loading-state,
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem;
-    color: #6b7280;
-}
-
-.spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid #e5e7eb;
-    border-top: 3px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 0.75rem;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    gap: var(--space-2);
 }
 </style>

@@ -1,0 +1,127 @@
+/* ============================================================
+   DESIGN TOKENS — RealtyApp
+   import './assets/tokens.css'  в main.ts
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* ---- Фон: тёплый кремовый, без желтизны, без стерильности ---- */
+  --color-bg:       #f8f6f1;   /* кремовый лён — между пергаментом и белым */
+  --color-bg-soft:  #f8f5ef;   /* sidebar, второй план */
+  --color-bg-muted: #E8E3D9;   /* разделители, hover-зоны */
+
+  --color-surface:  #FFFFFF;
+
+  /* ---- Тёмный ---- */
+  --color-dark:     #1C1A17;
+  --color-dark-60:  rgba(28, 26, 23, 0.60);
+  --color-dark-35:  rgba(28, 26, 23, 0.35);
+  --color-dark-12:  rgba(28, 26, 23, 0.10);
+
+  /* ---- Акцент: изумруд ---- */
+  --color-emerald:    #1A6B4A;
+  --color-emerald-20: rgba(26, 107, 74, 0.20);
+  --color-emerald-08: rgba(26, 107, 74, 0.08);
+
+  /* ---- Вспомогательный: мятно-оливковый ---- */
+  --color-olive:    #8DA98A;
+  --color-olive-20: rgba(141, 169, 138, 0.20);
+  --color-olive-10: rgba(141, 169, 138, 0.10);
+
+  /* ---- Пастельная палитра (для градиентов и акцентов) ---- */
+  --color-rose:       #C4788A;   /* пыльная роза */
+  --color-rose-soft:  rgba(196, 120, 138, 0.12);
+  --color-rose-faint: rgba(196, 120, 138, 0.06);
+
+  --color-lilac:       #9B89B4;  /* сиреневый */
+  --color-lilac-soft:  rgba(155, 137, 180, 0.12);
+  --color-lilac-faint: rgba(155, 137, 180, 0.06);
+
+  --color-peach:       #C49A78;  /* тёплый персик/терракота */
+  --color-peach-soft:  rgba(196, 154, 120, 0.10);
+  --color-peach-faint: rgba(196, 154, 120, 0.05);
+
+  /* ---- Статусные цвета ---- */
+  --color-danger:     #B94040;
+  --color-danger-bg:  rgba(185, 64, 64, 0.08);
+  --color-warning:    #B87333;
+  --color-warning-bg: rgba(184, 115, 51, 0.08);
+  --color-info:       #3A6E8F;
+  --color-info-bg:    rgba(58, 110, 143, 0.08);
+  --color-neutral:    #7A6B8A;
+  --color-neutral-bg: rgba(122, 107, 138, 0.08);
+  --color-success:    #1A6B4A;
+  --color-success-bg: rgba(26, 107, 74, 0.08);
+
+  /* ---- Типографика ---- */
+  --font-base: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs:   .9rem;
+  --text-sm:   0.9325rem;
+  --text-base: 1.2rem /* 0.9375rem; */
+  --text-md:   1.2625rem;
+  --text-lg:   1.35rem;
+  --text-xl:   1.5rem;
+  --text-2xl:  2rem;
+  --text-3xl:  2.75rem;
+  --text-4xl:  3.5rem;
+
+  /* ---- Отступы ---- */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---- Радиусы ---- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ---- Тени ---- */
+  --shadow-sm: 0 1px 3px rgba(28, 26, 23, 0.06);
+  --shadow-md: 0 4px 16px rgba(28, 26, 23, 0.08);
+
+  /* ---- Переходы ---- */
+  --transition: 200ms ease;
+}
+
+/* ---- Сброс ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #app { height: 100%; width: 100%; }
+
+body {
+  font-family: var(--font-base);
+  font-size: var(--text-base);
+  color: var(--color-dark);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* ---- Утилиты для страниц ---- */
+.content-page {
+  min-height: 100%;
+}
+
+.content-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-8);
+}
+
+/* ---- Скроллбар ---- */
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--color-dark-12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-dark-35); }

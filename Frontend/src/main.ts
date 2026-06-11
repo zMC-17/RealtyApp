@@ -2,8 +2,9 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 
+import './styles/tokens.css'
+
 import PrimeVue from 'primevue/config';
-import './style.css';
 import router from './router/index.ts';
 import { useAuthStore } from './stores/auth';
 
