@@ -18,5 +18,3 @@ build/
 uploads/
 !uploads/.gitkeep
 .pytest_cahce
-
-documentation/
