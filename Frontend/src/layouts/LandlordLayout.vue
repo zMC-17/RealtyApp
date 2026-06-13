@@ -174,7 +174,7 @@ const navItems = [
   width: 196px;
   height: 100%;
   /* Стекло: пропускает blob-фон снизу */
-  background: rgba(242, 237, 227, 0.55);
+  background: rgba(240, 238, 234, 0.55);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   /* Правая граница — тоже полупрозрачная, не резкая */
